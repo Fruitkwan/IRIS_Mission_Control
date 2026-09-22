@@ -44,8 +44,12 @@ ClassMethod SendFile(url As %String, contentType As %String) As %Status
 
 ClassMethod SendStream(file As %String, contentType As %String) As %Status
 {
+    // Stream raw bytes: NoCharSetConvert stops CSP from translating the
+    // payload (files are already UTF-8), and the charset is declared in the
+    // Content-Type header instead so text/* still renders correctly.
+    set %response.NoCharSetConvert = 1
+    if contentType [ "text/" set contentType = contentType _ "; charset=utf-8"
     set %response.ContentType = contentType
-    set %response.CharSet = "utf-8"
     set %response.Expires = 0
     set stream = ##class(%Stream.FileBinary).%New()
     do stream.LinkToFile(file)
