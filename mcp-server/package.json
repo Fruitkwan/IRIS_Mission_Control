@@ -1,0 +1,15 @@
+{
+  "name": "irisops-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing read-only InterSystems IRIS administration tools backed by the /api/admin SysAdmin APIs",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --experimental-strip-types src/server.mts",
+    "dev": "node --watch --experimental-strip-types src/server.mts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "zod": "^3.25.0"
+  }
+}

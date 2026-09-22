@@ -1,0 +1,8 @@
+frontend/node_modules
+frontend/dist
+web
+.git
+*.md
+docker-compose.yml
+Dockerfile
+.dockerignore

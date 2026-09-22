@@ -1,0 +1,42 @@
+services:
+  iris:
+    build:
+      context: .
+    container_name: irisops
+    command: --check-caps false
+    # The -zpm base image's iris-after-start hook can fail on first boot
+    # (upstream dbapi regression); restart policy makes the first run resilient.
+    restart: unless-stopped
+    environment:
+      IRISOPS_SSL_CONFIG: ${IRISOPS_SSL_CONFIG:-}
+    ports:
+      - "52773:52773"
+      - "1972:1972"
+    volumes:
+      - irisops-data:/usr/irissys/mgr
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/52773 && echo -e \"GET /irisops/health HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q ok <&3'"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  mcp:
+    build:
+      context: .
+      dockerfile: mcp-server/Dockerfile
+    container_name: irisops-mcp
+    restart: unless-stopped
+    environment:
+      IRIS_URL: http://iris:52773/api/admin
+      IRIS_USER: ${IRIS_USER:-_SYSTEM}
+      IRIS_PASSWORD: ${IRIS_PASSWORD:-SYS}
+      MCP_PORT: 3333
+    ports:
+      - "3333:3333"
+    depends_on:
+      iris:
+        condition: service_started
+
+volumes:
+  irisops-data:

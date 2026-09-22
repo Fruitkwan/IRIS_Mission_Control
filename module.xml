@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+  <Document name="irisops.ZPM">
+    <Module>
+      <Name>irisops</Name>
+      <Version>0.2.0</Version>
+      <Description>IrisOps / IRIS Mission Control - an intelligent operations, security, FHIR and multi-cloud control plane for InterSystems IRIS built on the /api/admin SysAdmin APIs.</Description>
+      <Keywords>management portal admin monitoring security fhir mcp iris</Keywords>
+      <Packaging>module</Packaging>
+      <SourcesRoot>src</SourcesRoot>
+      <Resource Name="IrisOps.PKG" Directory="cls"/>
+      <CSPApplication CookiePath="/irisops/" DefaultTimeout="900" DeployPath="${cspdir}/irisops" DispatchClass="IrisOps.Router" MatchRoles=":{$globalsDbRole}" PasswordAuthEnabled="1" Recurse="1" RedirectEmptyPath="1" ServeFiles="1" ServeFilesTimeout="3600" SourcePath="/web" UnauthenticatedEnabled="1" Url="/irisops" UseSessionCookie="2"/>
+      <CSPApplication DispatchClass="IrisOps.Router" JWTAuthEnabled="1" PasswordAuthEnabled="0" Recurse="0" ServeFiles="0" UnauthenticatedEnabled="0" Url="/irisops-broker" UseSessionCookie="0"/>
+    </Module>
+  </Document>
+</Export>

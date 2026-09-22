@@ -1,0 +1,8 @@
+    // Unexpire passwords to simplify dev mode. Comment this line for production use
+    zn "%SYS"
+    Do ##class(Security.Users).UnExpireUserPasswords("*")
+
+    // Install IrisOps: registers the /irisops CSP application and deploys web assets
+    zn "USER"
+    zpm "load /home/irisowner/irisops -v":1:1
+    halt
