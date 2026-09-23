@@ -25,6 +25,7 @@ import {
   Lock,
   LogOut,
   MonitorSmartphone,
+  Moon,
   Network,
   Plug,
   ScrollText,
@@ -33,6 +34,7 @@ import {
   ShieldCheck,
   Shield,
   Stethoscope,
+  Sun,
   TerminalSquare,
   UserCog,
   Users,
@@ -45,6 +47,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { axios } from '../../api/axios-instance';
 import { resultOf } from '../../api/helpers';
+import { toggleTheme, useTheme } from '../../lib/theme';
 import { useEffect } from 'react';
 
 const useServerInfo = () =>
@@ -206,6 +209,7 @@ export function AppShell({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const info = useServerInfo();
+  const theme = useTheme();
 
   // redirect to login when unauthenticated
   useEffect(() => {
@@ -290,6 +294,15 @@ export function AppShell({ onOpenPalette }: { onOpenPalette: () => void }) {
               : 'connecting…'}
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-label="Toggle theme"
+              onClick={toggleTheme}
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="sm" title="Export instance config as JSON" onClick={exportConfig}>
               <Download className="h-4 w-4" /> Export
             </Button>

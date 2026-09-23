@@ -6,6 +6,7 @@ import { resultOf } from '../api/helpers';
 import { Card, CardHeader, Badge, PageLoader, ErrorState } from '../components/ui';
 import { PageHeader } from '../components/PageHeader';
 import { fmtNum, cn } from '../lib/utils';
+import { useTheme } from '../lib/theme';
 const useServerInfo = () =>
   useQuery({
     queryKey: ['server-info'],
@@ -61,9 +62,16 @@ function StatusBadge({ label, value }: { label: string; value: unknown }) {
   );
 }
 
+const CHART_COLORS = {
+  dark: { legend: '#94a3b8', split: '#1a2230', axis: '#64748b', tipBg: '#131a23', tipBorder: '#243040', tipText: '#e2e8f0' },
+  light: { legend: '#475569', split: '#e2e8f0', axis: '#64748b', tipBg: '#ffffff', tipBorder: '#cbd5e1', tipText: '#0f172a' },
+};
+
 function LiveChart({ title, series }: { title: string; series: { name: string; data: number[]; color: string }[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const theme = useTheme();
+  const c = CHART_COLORS[theme];
 
   useEffect(() => {
     if (!ref.current) return;
@@ -82,7 +90,7 @@ function LiveChart({ title, series }: { title: string; series: { name: string; d
       legend: {
         top: 0,
         right: 0,
-        textStyle: { color: '#94a3b8', fontSize: 10 },
+        textStyle: { color: c.legend, fontSize: 10 },
         itemWidth: 10,
         itemHeight: 2,
       },
@@ -94,8 +102,8 @@ function LiveChart({ title, series }: { title: string; series: { name: string; d
       },
       yAxis: {
         type: 'value',
-        splitLine: { lineStyle: { color: '#1a2230' } },
-        axisLabel: { color: '#64748b', fontSize: 10 },
+        splitLine: { lineStyle: { color: c.split } },
+        axisLabel: { color: c.axis, fontSize: 10 },
       },
       series: series.map((s) => ({
         name: s.name,
@@ -109,12 +117,12 @@ function LiveChart({ title, series }: { title: string; series: { name: string; d
       animation: false,
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#131a23',
-        borderColor: '#243040',
-        textStyle: { color: '#e2e8f0', fontSize: 11 },
+        backgroundColor: c.tipBg,
+        borderColor: c.tipBorder,
+        textStyle: { color: c.tipText, fontSize: 11 },
       },
     });
-  }, [series]);
+  }, [series, c]);
 
   return (
     <Card>

@@ -8,7 +8,6 @@ import { PageHeader } from '../../components/PageHeader';
 import { Tabs } from '../../components/Tabs';
 import { Button, Card, Input, Toggle } from '../../components/ui';
 import { useToast, errText } from '../../components/toast';
-import { useGetSecurityAuditEvents } from '../../api/generated/security/security';
 
 type Row = Record<string, unknown>;
 
@@ -17,14 +16,15 @@ function AuditToggle() {
   const { toast } = useToast();
   const q = useQuery({
     queryKey: ['audit-enabled'],
-    queryFn: () => axios.get('/v2/security/audit/enabled').then((r) => resultOf<Row>(r.data)),
+    queryFn: () => axios.get('/v2/security/audit/enabled', { timeout: 15000 }).then((r) => resultOf<Row>(r.data)),
+    retry: false,
   });
   const enabled = Boolean(q.data?.Enabled);
   return (
     <div className="flex items-center gap-3 rounded-lg border border-ink-700 bg-ink-900 px-4 py-3">
       <Toggle
         checked={enabled}
-        disabled={q.isLoading}
+        disabled={q.isLoading || !!q.error}
         onChange={async (v) => {
           try {
             await axios.put('/v2/security/audit/enabled', { Enabled: v });
@@ -36,16 +36,20 @@ function AuditToggle() {
         }}
       />
       <div>
-        <div className="text-sm font-medium">Audit logging {enabled ? 'enabled' : 'disabled'}</div>
-        <div className="text-xs text-ink-500">Master switch for the IRIS audit database</div>
+        <div className="text-sm font-medium">Audit logging {q.error ? 'status unavailable' : enabled ? 'enabled' : 'disabled'}</div>
+        <div className="text-xs text-ink-500">{q.error ? `Could not read audit status: ${errText(q.error)}` : 'Master switch for the IRIS audit database'}</div>
       </div>
     </div>
   );
 }
 
 function AuditEvents() {
-  const q = useGetSecurityAuditEvents();
-  const rows = resultOf<Row[]>(q.data) ?? [];
+  const q = useQuery({
+    queryKey: ['audit-events'],
+    queryFn: () => axios.get('/v2/security/audit/events', { timeout: 15000 }).then((r) => resultOf<Row[]>(r.data) ?? []),
+    retry: false,
+  });
+  const rows = q.data ?? [];
   const qc = useQueryClient();
   const { toast } = useToast();
   return (
@@ -84,7 +88,7 @@ function AuditEvents() {
       rows={rows}
       loading={q.isLoading}
       error={q.error}
-      onRetry={() => qc.invalidateQueries()}
+      onRetry={() => q.refetch()}
       rowKey={(r) => String(r.EventName)}
       dense
       searchPlaceholder="Filter events…"

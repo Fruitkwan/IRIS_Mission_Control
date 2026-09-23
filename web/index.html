@@ -4,9 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Apply saved theme before first paint to avoid a flash of the wrong theme.
+      try {
+        var t = localStorage.getItem('irisops-theme');
+        if (t !== 'dark' && t !== 'light') {
+          t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.dataset.theme = t;
+        document.documentElement.style.colorScheme = t;
+      } catch (e) {}
+    </script>
     <title>IRIS Mission Control</title>
-    <script type="module" crossorigin src="./assets/index-B5zX2VvB.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BBuoN0Ac.css">
+    <script type="module" crossorigin src="./assets/index-Dh9H2ds3.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CHUyh8dk.css">
   </head>
   <body>
     <div id="root"></div>

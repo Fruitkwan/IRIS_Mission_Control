@@ -195,19 +195,20 @@ export function Toggle({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative h-5 w-9 rounded-full transition-colors disabled:opacity-40',
+        'relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 disabled:opacity-40',
         checked ? 'bg-accent-600' : 'bg-ink-700',
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
-          checked ? 'translate-x-4.5 left-0 ml-0' : 'translate-x-0.5',
+          'absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+          checked && 'translate-x-4',
         )}
-        style={{ left: 0, transform: checked ? 'translateX(18px)' : 'translateX(2px)' }}
       />
     </button>
   );
