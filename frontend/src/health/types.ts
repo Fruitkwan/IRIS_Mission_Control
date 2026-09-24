@@ -38,6 +38,7 @@ export interface CategoryScore {
 
 export interface HealthReport {
   generatedAt: string;
+  scoreMethod: string;
   scores: CategoryScore[];
   overall: number;
   findings: Finding[];

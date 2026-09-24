@@ -59,7 +59,7 @@ function buildServer() {
       }
     });
 
-  tool('iris_get_health', 'Overall IRIS health: subsystem scores plus evidence-backed findings produced by the rules engine', {}, async () => {
+  tool('iris_get_health', 'IRIS Ops rule-based configuration assessment and evidence-backed findings; scores are not InterSystems health metrics', {}, async () => {
     const paths = {
       dashboard: '/v2/monitor/dashboard/main',
       databases: '/v2/databases',

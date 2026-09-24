@@ -25,7 +25,7 @@ higher-level question: *is my IRIS environment healthy, and what needs attention
   incident grouping
 
 ### Intelligence
-- **Operations Center** (`/operations`) — per-subsystem health scores and a
+- **Operations Center** (`/operations`) — per-subsystem rule-based assessment scores and a
   severity-ranked finding feed.
 - **IRIS Doctor** (`/doctor`) — one-click diagnosis: runs every collector,
   evaluates deterministic rules, and produces **evidence-backed findings**
@@ -35,6 +35,8 @@ higher-level question: *is my IRIS environment healthy, and what needs attention
   instances, insecure/unauthenticated services & web apps, default accounts,
   disabled login auditing, suspended/failed tasks, expiring certificates,
   license saturation, runaway processes.
+  Scores use one penalty per distinct finding type and are prioritization aids,
+  not InterSystems health metrics. Collector failures are shown as incomplete data.
 
 ### AI & agent interface
 - **MCP server** (`mcp-server/`, Streamable HTTP) — 16 read-only tools

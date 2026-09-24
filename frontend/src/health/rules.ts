@@ -22,6 +22,7 @@ function f(
 const SYSTEM_RO_DBS = new Set(['IRISLIB', 'IRISAUDIT']);
 const RISKY_SERVICES = new Set(['%Service_Telnet', '%Service_Terminal', '%Service_FTP', '%Service_WebLink', '%Service_Bindings', '%Service_ComPort']);
 const DEFAULT_ACCOUNTS = new Set(['_SYSTEM', 'Admin', 'SuperUser', 'CSPSystem', 'UnknownUser']);
+const isBundledWebApp = (name: string) => /^\/(?:api|csp|isc)\/|^\/ui\/interop(?:\/|$)/.test(name);
 
 export function evaluate(t: Telemetry): Finding[] {
   n = 0;
@@ -37,11 +38,12 @@ export function evaluate(t: Telemetry): Finding[] {
     const name = str(db.Name);
     const st = str(db.Status);
     if (!st.toLowerCase().startsWith('mounted')) {
-      findings.push(f('db-not-mounted', 'database', 'critical', `Database ${name} is not mounted`, `Database ${name} reports status "${st || 'unknown'}".`, [
-        { label: 'Database', value: name }, { label: 'Status', value: st || 'unknown' }, { label: 'Directory', value: str(db.Directory) },
-      ], 'Mount the database before dependent namespaces fail.', '/databases'));
+      const required = db.MountRequired === true;
+      findings.push(f('db-not-mounted', 'database', required ? 'critical' : 'info', `Database ${name} is not mounted`, `Database ${name} reports status "${st || 'unknown'}". ${required ? 'It is required at startup.' : 'It is not marked as required at startup; this may be intentional.'}`, [
+        { label: 'Database', value: name }, { label: 'Status', value: st || 'unknown' }, { label: 'Mount required', value: str(db.MountRequired) }, { label: 'Directory', value: str(db.Directory) },
+      ], required ? 'Investigate why this required database is unmounted.' : 'Check whether any active namespace or application depends on this database before mounting it.', '/databases'));
     } else if (st.endsWith('/R') && !SYSTEM_RO_DBS.has(name)) {
-      findings.push(f('db-readonly', 'database', 'warning', `Database ${name} is mounted read-only`, `${name} is mounted read-only. Writes will fail for namespaces mapped to it.`, [
+      findings.push(f('db-readonly', 'database', name === 'ENSLIB' ? 'info' : 'warning', `Database ${name} is mounted read-only`, `${name} is mounted read-only. Writes to namespaces mapped to it would fail; confirm whether this is intentional.`, [
         { label: 'Database', value: name }, { label: 'Status', value: st }, { label: 'Directory', value: str(db.Directory) },
       ], 'Verify this is intentional; remount read-write if applications need to write.', '/databases'));
     }
@@ -121,9 +123,9 @@ export function evaluate(t: Telemetry): Finding[] {
   // ---- Journal ----
   const js = t.journalSettings;
   if (js && js.FreezeOnError === false) {
-    findings.push(f('journal-no-freeze', 'journal', 'warning', 'Freeze-on-error is disabled', 'If the journal disk fails, IRIS will not freeze — database integrity can be compromised silently.', [
+    findings.push(f('journal-no-freeze', 'journal', 'warning', 'Freeze-on-error is disabled', 'On a journal write error, IRIS may continue processing instead of immediately freezing updates. This favors availability but can expose later updates to data loss.', [
       { label: 'FreezeOnError', value: 'false' }, { label: 'JournalDir', value: str(js.CurrentDirectory) },
-    ], 'Enable FreezeOnError unless you have an alternative journal failure strategy.', '/journal'));
+    ], 'Review the availability versus data-loss tradeoff before enabling FreezeOnError.', '/journal'));
   }
   if (js && js.CompressFiles === false) {
     findings.push(f('journal-nocompress', 'journal', 'recommendation', 'Journal compression is disabled', 'Journal files are not compressed; they will consume more disk.', [
@@ -150,9 +152,9 @@ export function evaluate(t: Telemetry): Finding[] {
   for (const svc of t.services ?? []) {
     const name = str(svc.Name);
     if (svc.Enabled === true && RISKY_SERVICES.has(name)) {
-      findings.push(f('svc-risky', 'security', 'warning', `Insecure service ${name} is enabled`, `${name} (${str(svc.Description)}) is enabled. It is a legacy/insecure access path.`, [
+      findings.push(f('svc-risky', 'security', 'recommendation', `Review enabled service ${name}`, `${name} (${str(svc.Description)}) is enabled. Whether it presents a risk depends on authentication and network exposure.`, [
         { label: 'Service', value: name }, { label: 'Public', value: str(svc.Public) }, { label: 'Auth methods', value: (svc.AuthenticationMethods as string[] ?? []).join(', ') || 'none' },
-      ], 'Disable this service unless it is strictly required.', '/security/services'));
+      ], 'Confirm the service is needed and restricted to intended users and networks.', '/security/services'));
     }
     if (svc.Enabled === true && svc.Public === 'Yes' && (svc.AuthenticationMethods as string[] ?? []).length === 0) {
       findings.push(f('svc-noauth', 'security', 'critical', `Public service ${name} has no authentication`, `${name} is enabled, public, and has no authentication methods configured.`, [
@@ -185,13 +187,24 @@ export function evaluate(t: Telemetry): Finding[] {
   }
 
   // ---- Web apps ----
+  const bundledUnauthenticated: string[] = [];
   for (const app of t.webApps ?? []) {
     const methods = (app.AuthenticationMethods as string[]) ?? [];
     if (app.Enabled === true && (methods.includes('Unauthenticated') || methods.length === 0)) {
-      findings.push(f('webapp-unauth', 'security', 'warning', `Web application ${app.Name} allows unauthenticated access`, `${app.Name} is enabled with unauthenticated access permitted.`, [
+      const name = str(app.Name);
+      if (isBundledWebApp(name)) {
+        bundledUnauthenticated.push(name);
+        continue;
+      }
+      findings.push(f('webapp-unauth', 'security', 'warning', `Review unauthenticated web application ${name}`, `${name} accepts IRIS-level unauthenticated access. The application may still enforce authorization in its own code.`, [
         { label: 'Application', value: str(app.Name) }, { label: 'Namespace', value: str(app.Namespace) }, { label: 'Auth methods', value: methods.join(', ') || 'none' },
-      ], 'Require authentication unless this endpoint is intentionally public.', '/web-apps'));
+      ], 'Verify route-level authorization or require IRIS authentication if this endpoint is not intentionally public.', '/web-apps'));
     }
+  }
+  if (bundledUnauthenticated.length > 0) {
+    findings.push(f('webapp-bundled-unauth', 'security', 'recommendation', `${bundledUnauthenticated.length} bundled web applications accept unauthenticated access`, 'These are InterSystems-supplied applications. Review their authentication settings against your deployment policy; their presence alone does not confirm a vulnerability.', [
+      { label: 'Applications', value: bundledUnauthenticated.join(', ') },
+    ], 'Review bundled application settings before changing them; disabling access can affect IRIS tools.', '/web-apps'));
   }
 
   // ---- Certificates ----
@@ -229,7 +242,12 @@ export function toReport(findings: Finding[], collectorErrors: { collector: stri
   const weight: Record<Severity, number> = { critical: 30, warning: 12, info: 4, recommendation: 3 };
   const scores = categories.map((category) => {
     const fs = findings.filter((x) => x.category === category);
-    const score = Math.max(0, 100 - fs.reduce((s, x) => s + weight[x.severity], 0));
+    // Each rule contributes once; multiple affected resources remain visible as findings.
+    const rulePenalties = new Map<string, number>();
+    for (const finding of fs) {
+      rulePenalties.set(finding.ruleId, Math.max(rulePenalties.get(finding.ruleId) ?? 0, weight[finding.severity]));
+    }
+    const score = Math.max(0, 100 - [...rulePenalties.values()].reduce((sum, penalty) => sum + penalty, 0));
     return { category, score, findings: fs };
   });
   const overall = Math.round(scores.reduce((s, c) => s + c.score, 0) / scores.length);
@@ -239,5 +257,9 @@ export function toReport(findings: Finding[], collectorErrors: { collector: stri
     info: findings.filter((x) => x.severity === 'info').length,
     recommendation: findings.filter((x) => x.severity === 'recommendation').length,
   };
-  return { generatedAt: now(), scores, overall, findings, collectorErrors, summary };
+  return {
+    generatedAt: now(),
+    scoreMethod: 'IRIS Ops rule-based assessment: fixed penalty per distinct finding type, averaged across seven categories. This is not an InterSystems health metric.',
+    scores, overall, findings, collectorErrors, summary,
+  };
 }

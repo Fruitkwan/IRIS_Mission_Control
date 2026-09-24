@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { CheckCircle2, CircleDashed, Download, Loader2, Stethoscope } from 'lucide-react';
+import { CheckCircle2, CircleDashed, Download, Loader2, Search, Stethoscope } from 'lucide-react';
 import { axios } from '../../api/axios-instance';
 import { resultOf } from '../../api/helpers';
 import { errText } from '../../components/toast';
 import { PageHeader } from '../../components/PageHeader';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, Input } from '../../components/ui';
 import { Drawer } from '../../components/DetailDrawer';
 import { EvidenceView, FindingCard } from '../../components/FindingCard';
 import { runDiagnostics } from '../../health/engine';
@@ -15,7 +15,8 @@ function exportReport(r: HealthReport) {
   const lines = [
     '# IRIS Doctor — Diagnostic Report',
     `Generated: ${r.generatedAt}`,
-    `Overall health: ${r.overall}/100`,
+    `IRIS Ops assessment: ${r.overall}/100`,
+    r.scoreMethod,
     '',
     `Critical: ${r.summary.critical} · Warnings: ${r.summary.warning} · Info: ${r.summary.info} · Recommendations: ${r.summary.recommendation}`,
     '',
@@ -52,6 +53,8 @@ export function DoctorPage() {
   const [auditError, setAuditError] = useState('');
   const [auditResult, setAuditResult] = useState('');
   const [previousScore, setPreviousScore] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const [severityFilter, setSeverityFilter] = useState<Finding['severity'] | 'all'>('all');
   const stepsRef = useRef<HTMLDivElement>(null);
 
   const diagnose = async () => {
@@ -113,7 +116,7 @@ export function DoctorPage() {
       if (verified?.Enabled !== true) throw new Error('IRIS did not confirm that the login event is enabled.');
       setPreviousScore(report?.overall ?? null);
       setAuditState({ ...auditState, eventEnabled: true });
-      setAuditResult('IRIS confirmed login auditing is enabled. Run diagnostics again to verify the finding and health score.');
+      setAuditResult('IRIS confirmed login auditing is enabled. Run diagnostics again to verify the finding and assessment score.');
     } catch (e) {
       setAuditError(`Could not verify the change: ${errText(e)}`);
     } finally {
@@ -122,6 +125,13 @@ export function DoctorPage() {
   };
 
   const counts = report?.summary;
+  const severityOrder: Finding['severity'][] = ['critical', 'warning', 'info', 'recommendation'];
+  const query = search.trim().toLowerCase();
+  const visibleFindings = (report?.findings ?? [])
+    .filter((finding) => severityFilter === 'all' || finding.severity === severityFilter)
+    .filter((finding) => !query || [finding.title, finding.description, finding.category, finding.recommendation ?? '', ...finding.evidence.map((item) => `${item.label} ${item.value}`)]
+      .some((text) => text.toLowerCase().includes(query)))
+    .sort((a, b) => severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity));
 
   return (
     <div className="space-y-5">
@@ -188,7 +198,7 @@ export function DoctorPage() {
                   {report.overall}
                   <span className="text-lg text-ink-500">/100</span>
                 </div>
-                <div className="mt-1 text-[11px] text-ink-400">Overall health</div>
+                <div className="mt-1 text-[11px] text-ink-400">IRIS Ops assessment</div>
               </div>
               <div className="flex gap-2">
                 <Badge tone="red" className="px-3 py-1">{counts?.critical ?? 0} critical</Badge>
@@ -204,8 +214,38 @@ export function DoctorPage() {
             </div>
           </Card>
 
+          <p className="text-xs text-ink-500">{report.scoreMethod}{report.collectorErrors.length > 0 && ' Some data sources were unavailable, so this assessment is incomplete.'}</p>
+
           {previousScore !== null && (
-            <p className="text-xs text-ink-400">Previous diagnostic score: {previousScore}/100 · Current: {report.overall}/100. Compare the findings below to confirm the change.</p>
+            <p className="text-xs text-ink-400">Previous assessment: {previousScore}/100 · Current: {report.overall}/100. Compare the findings below to confirm the change.</p>
+          )}
+
+          {report.findings.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {(['all', ...severityOrder] as const).map((severity) => (
+                  <button
+                    key={severity}
+                    type="button"
+                    aria-pressed={severityFilter === severity}
+                    onClick={() => setSeverityFilter(severity)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400',
+                      severityFilter === severity ? 'border-accent-500 bg-accent-500/15 text-accent-300' : 'border-ink-700 text-ink-400 hover:border-ink-600 hover:text-ink-200',
+                    )}
+                  >
+                    {severity} ({severity === 'all' ? report.findings.length : counts?.[severity] ?? 0})
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="relative w-full max-w-sm">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-ink-500" />
+                  <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search findings or evidence…" aria-label="Search findings" />
+                </label>
+                <span className="text-xs text-ink-500">Showing {visibleFindings.length} of {report.findings.length} findings · highest severity first</span>
+              </div>
+            </div>
           )}
 
           <div className="space-y-2.5">
@@ -214,7 +254,10 @@ export function DoctorPage() {
                 No findings — this instance is healthy.
               </Card>
             )}
-            {report.findings.map((f) => (
+            {report.findings.length > 0 && visibleFindings.length === 0 && (
+              <Card className="p-8 text-center text-sm text-ink-400">No findings match this search and filter.</Card>
+            )}
+            {visibleFindings.map((f) => (
               <FindingCard key={f.id} finding={f} onEvidence={setSelected} />
             ))}
           </div>

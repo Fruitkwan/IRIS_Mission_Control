@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test:health": "node --experimental-strip-types --test tests/health-rules.test.mjs",
+    "record:demo": "node scripts/record-doctor-demo.mjs",
     "preview": "vite preview",
     "generate": "node ../scripts/add-operation-ids.mjs && orval",
     "prebuild": "npm run generate"
@@ -24,6 +26,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",

@@ -66,7 +66,7 @@ export function OperationsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Operations Center"
-        description="Environment health, evidence-backed findings, and recommendations"
+        description="Rule-based configuration assessment, evidence-backed findings, and recommendations"
         actions={
           <>
             <Link to="/doctor">
@@ -82,7 +82,7 @@ export function OperationsPage() {
       {/* Score strip */}
       <Card className="p-5">
         <div className="flex items-center gap-8 flex-wrap">
-          <ScoreRing score={r?.overall ?? 0} label="Overall health" size={110} />
+          <ScoreRing score={r?.overall ?? 0} label="Assessment" size={110} />
           <div className="flex gap-6 flex-wrap">
             {(r?.scores ?? []).map((s) => (
               <ScoreRing key={s.category} score={s.score} label={CAT_LABEL[s.category] ?? s.category} size={72} />
@@ -102,6 +102,10 @@ export function OperationsPage() {
             )}
           </div>
         </div>
+        <p className="mt-4 border-t border-ink-800 pt-3 text-[11px] text-ink-500">
+          {r?.scoreMethod ?? 'Scores are calculated by IRIS Ops rules.'}
+          {(r?.collectorErrors.length ?? 0) > 0 && ' Some data sources were unavailable, so this assessment is incomplete.'}
+        </p>
       </Card>
 
       {/* Severity summary chips */}

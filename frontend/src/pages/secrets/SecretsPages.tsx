@@ -17,6 +17,7 @@ import {
   useGetSecurityOauth2ClientServerDefinitions,
   useGetSecurityOauth2ClientClientConfigurations,
 } from '../../api/generated/security/security';
+import type { OAuth2AuthorizationServerListItem } from '../../api/generated/sysAdminAPIs.schemas';
 import { useGetWalletCollections } from '../../api/generated/wallet/wallet';
 import { useQuery } from '@tanstack/react-query';
 
@@ -332,8 +333,8 @@ export function OAuth2Page() {
                 title=""
                 listHook={useGetSecurityOauth2ClientServerDefinitions as never}
                 singlePath="/v2/security/oauth2/client/server-definition"
-                nameKey="ServerId"
-                rowParams={(r) => ({ serverId: String(r.ServerId ?? r.Name) })}
+                nameKey="ID"
+                rowParams={(r) => ({ serverId: String(r.ID) })}
                 createParam="serverId"
                 ops={{
                   get: 'getSecurityOauth2ClientServerDefinition',
@@ -343,7 +344,7 @@ export function OAuth2Page() {
                 }}
                 createLabel="New server definition"
                 columns={[
-                  { key: 'ServerId', header: 'Server ID', className: 'font-mono text-xs' },
+                  { key: 'ID', header: 'Server ID', className: 'font-mono text-xs' },
                   { key: 'IssuerEndpoint', header: 'Issuer', render: (r) => String(r.IssuerEndpoint ?? '—') },
                   { key: 'SSLConfiguration', header: 'TLS', render: (r) => String(r.SSLConfiguration ?? '—') },
                 ]}
@@ -353,32 +354,74 @@ export function OAuth2Page() {
           {
             id: 'client-confs',
             label: 'Client · Configurations',
-            content: (
-              <ResourcePage<Row>
-                title=""
-                listHook={useGetSecurityOauth2ClientClientConfigurations as never}
-                singlePath="/v2/security/oauth2/client/client-configuration"
-                nameKey="ApplicationName"
-                rowParams={(r) => ({ applicationName: String(r.ApplicationName ?? r.Name) })}
-                createParam="applicationName"
-                ops={{
-                  get: 'getSecurityOauth2ClientClientConfiguration',
-                  update: 'putSecurityOauth2ClientClientConfiguration',
-                  delete: 'deleteSecurityOauth2ClientClientConfiguration',
-                  create: 'putSecurityOauth2ClientClientConfiguration',
-                }}
-                createMethod="put"
-                createLabel="New client configuration"
-                columns={[
-                  { key: 'ApplicationName', header: 'Application', className: 'font-mono text-xs' },
-                  { key: 'ServerDefinition', header: 'Server def', render: (r) => String(r.ServerDefinition ?? '—') },
-                  { key: 'ClientType', header: 'Type', render: (r) => String(r.ClientType ?? '—') },
-                ]}
-              />
-            ),
+            content: <OAuthClientConfigurations />,
           },
         ]}
       />
     </div>
+  );
+}
+
+function OAuthClientConfigurations() {
+  const definitions = useGetSecurityOauth2ClientServerDefinitions({});
+  const servers = resultOf<OAuth2AuthorizationServerListItem[]>(definitions.data) ?? [];
+  const [chosenServerId, setChosenServerId] = useState('');
+  const serverId = servers.some((server) => server.ID === chosenServerId)
+    ? chosenServerId
+    : (servers[0]?.ID ?? '');
+
+  if (definitions.isLoading) return <PageLoader />;
+  if (definitions.error) {
+    return <div className="rounded-lg border border-ink-700 bg-ink-900 p-6 text-sm text-red-400">{errText(definitions.error)}</div>;
+  }
+  if (!serverId) {
+    return (
+      <div className="rounded-lg border border-ink-700 bg-ink-900 p-6 text-sm text-ink-300">
+        No OAuth client server definitions exist. Create one in the Client · Server Definitions tab before viewing client configurations.
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="mb-4 flex items-center gap-3 text-sm text-ink-300">
+        Authorization server
+        <select
+          className="rounded-md border border-ink-700 bg-ink-900 px-3 py-2 text-ink-100"
+          value={serverId}
+          onChange={(event) => setChosenServerId(event.target.value)}
+        >
+          {servers.map((server) => <option key={server.ID} value={server.ID}>{server.ID}</option>)}
+        </select>
+      </label>
+      <OAuthClientConfigurationsForServer key={serverId} serverId={serverId} />
+    </div>
+  );
+}
+
+function OAuthClientConfigurationsForServer({ serverId }: { serverId: string }) {
+  const list = useGetSecurityOauth2ClientClientConfigurations({ serverId });
+  return (
+    <ResourcePage<Row>
+      title=""
+      listHook={() => list as never}
+      singlePath="/v2/security/oauth2/client/client-configuration"
+      nameKey="ApplicationName"
+      rowParams={(row) => ({ applicationName: String(row.ApplicationName ?? row.Name) })}
+      createParam="applicationName"
+      ops={{
+        get: 'getSecurityOauth2ClientClientConfiguration',
+        update: 'putSecurityOauth2ClientClientConfiguration',
+        delete: 'deleteSecurityOauth2ClientClientConfiguration',
+        create: 'putSecurityOauth2ClientClientConfiguration',
+      }}
+      createMethod="put"
+      createLabel="New client configuration"
+      columns={[
+        { key: 'ApplicationName', header: 'Application', className: 'font-mono text-xs' },
+        { key: 'ServerDefinition', header: 'Server def', render: (row) => String(row.ServerDefinition ?? '—') },
+        { key: 'ClientType', header: 'Type', render: (row) => String(row.ClientType ?? '—') },
+      ]}
+    />
   );
 }

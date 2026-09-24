@@ -6,3 +6,5 @@ frontend/src/api/generated/
 .env
 .env.*
 !.env.example
+demo/*.webm
+demo/*.mp4
