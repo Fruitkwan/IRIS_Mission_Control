@@ -39,6 +39,7 @@ export function ResourcePage<T extends Record<string, unknown>>({
   // identity
   rowParams,
   createParam = 'name',
+  createParams,
   createMethod = 'post',
   readOnlyDetail,
 }: {
@@ -60,6 +61,7 @@ export function ResourcePage<T extends Record<string, unknown>>({
   hideDelete?: boolean;
   rowParams?: (row: T) => Record<string, string>;
   createParam?: string | null;
+  createParams?: (name: string) => Record<string, string>;
   createMethod?: 'post' | 'put';
   readOnlyDetail?: boolean;
 }) {
@@ -105,7 +107,11 @@ export function ResourcePage<T extends Record<string, unknown>>({
     setBusy(true);
     try {
       if (mode === 'create') {
-        const params = createParam ? { [createParam]: newName } : {};
+        const params = createParams
+          ? createParams(newName)
+          : createParam
+            ? { [createParam]: newName }
+            : {};
         if (createMethod === 'put') await axios.put(singlePath!, form, { params });
         else await axios.post(singlePath!, form, { params });
         toast('ok', `${title} created`);

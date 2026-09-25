@@ -39,14 +39,18 @@ export function DocDbsPage() {
       listHook={useGetDocDbs as never}
       singlePath="/v2/doc-db"
       nameKey="Name"
-      rowParams={(r) => ({ name: String(r.Name), namespace: String(r.Namespace ?? '%SYS') })}
-      createParam={null}
-      ops={{ get: 'getDocDb', update: 'putDocDb', delete: 'deleteDocDb' }}
+      rowParams={(r) => ({ name: String(r.Name), namespace: String(r.Namespace ?? 'USER') })}
+      createParam="name"
+      createParams={(n) => ({ name: n, namespace: 'USER' })}
+      createMethod="put"
+      createLabel="New DocDB"
+      ops={{ get: 'getDocDb', update: 'putDocDb', delete: 'deleteDocDb', create: 'putDocDb' }}
       columns={[
         { key: 'Name', header: 'Name', className: 'font-mono text-xs' },
         { key: 'Namespace', header: 'Namespace' },
-        { key: 'Database', header: 'Database', render: (r) => String(r.Database ?? '—') },
-        { key: 'Size', header: 'Size', render: (r) => String(r.Size ?? '—') },
+        { key: 'Enabled', header: 'Enabled', render: (r) => <Badge tone={r.Enabled ? 'green' : 'neutral'}>{r.Enabled ? 'Enabled' : 'Disabled'}</Badge> },
+        { key: 'Resource', header: 'Resource', render: (r) => String(r.Resource || '—') },
+        { key: 'Description', header: 'Description', render: (r) => String(r.Description || '—') },
       ]}
     />
   );
