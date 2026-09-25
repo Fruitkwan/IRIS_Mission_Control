@@ -1,20 +1,12 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src &#39;self&#39;; script-src &#39;self&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; data:; font-src &#39;self&#39; data:; connect-src &#39;self&#39; http: https:; object-src &#39;none&#39;; base-uri &#39;self&#39;; form-action &#39;self&#39;">
+
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-      // Apply saved theme before first paint to avoid a flash of the wrong theme.
-      try {
-        var t = localStorage.getItem('irisops-theme');
-        if (t !== 'dark' && t !== 'light') {
-          t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-        }
-        document.documentElement.dataset.theme = t;
-        document.documentElement.style.colorScheme = t;
-      } catch (e) {}
-    </script>
+    <script src="./theme-init.js"></script>
     <title>IRIS Mission Control</title>
     <script type="module" crossorigin src="./assets/index-DXRgRt52.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-B3KvOusY.css">
