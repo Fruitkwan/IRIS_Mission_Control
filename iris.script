@@ -5,4 +5,12 @@
     // Install IrisOps: registers the /irisops CSP application and deploys web assets
     zn "USER"
     zpm "load /home/irisowner/irisops -v":1:1
+    // Outbound TLS for Azure OAuth and Key Vault; require CA and host checks.
+    zn "%SYS"
+    set props("Description")="Outbound Azure HTTPS for IRIS Mission Control"
+    set props("Enabled")=1
+    set props("Type")=0
+    set props("VerifyPeer")=1
+    set props("CAFile")="/etc/ssl/certs/ca-certificates.crt"
+    if '##class(Security.SSLConfigs).Exists("irisops-azure-client") set sc=##class(Security.SSLConfigs).Create("irisops-azure-client",.props)
     halt

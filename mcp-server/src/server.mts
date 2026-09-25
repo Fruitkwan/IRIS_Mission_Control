@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { api, IRIS_URL } from './iris.mts';
 // Reuse the portal's deterministic rules engine (pure TS, type-stripped at runtime).
 import { evaluate, toReport } from '../../frontend/src/health/rules.ts';
+import { DIAGNOSTIC_SOURCES } from '../../frontend/src/health/sources.ts';
 
 const PORT = Number(process.env.MCP_PORT ?? 3333);
 const startedAt = Date.now();
@@ -60,27 +61,14 @@ function buildServer() {
     });
 
   tool('iris_get_health', 'IRIS Ops rule-based configuration assessment and evidence-backed findings; scores are not InterSystems health metrics', {}, async () => {
-    const paths = {
-      dashboard: '/v2/monitor/dashboard/main',
-      databases: '/v2/databases',
-      processes: '/v2/processes',
-      locks: '/v2/locks',
-      tasks: '/v2/tasks',
-      users: '/v2/security/users',
-      services: '/v2/security/services',
-      webApps: '/v2/web-apps',
-      journalSettings: '/v2/journal/settings',
-      auditEvents: '/v2/security/audit/events',
-      x509: '/v2/security/x509-credentials',
-    };
     const telemetry: Record<string, unknown> = {};
     const errors: { collector: string; error: string }[] = [];
     await Promise.all(
-      Object.entries(paths).map(async ([k, p]) => {
+      DIAGNOSTIC_SOURCES.map(async ({ key, path }) => {
         try {
-          telemetry[k] = await api(p);
+          telemetry[key] = await api(path);
         } catch (e) {
-          errors.push({ collector: k, error: String(e) });
+          errors.push({ collector: key, error: String(e) });
         }
       }),
     );

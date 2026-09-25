@@ -10,7 +10,6 @@ XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
 <Routes>
   <Route Url="/" Method="GET" Call="Index" />
   <Route Url="/health" Method="GET" Call="Health" />
-  <Route Url="/api/cloud/test" Method="POST" Call="CloudTest" />
   <Route Url="/(.*)" Method="GET" Call="Serve" />
 </Routes>
 }
@@ -83,11 +82,6 @@ ClassMethod Health() As %Status
     set %response.ContentType = "application/json"
     write "{""status"":""ok"",""product"":""irisops"",""iris"":""" _ $zv _ """}"
     quit $$$OK
-}
-
-ClassMethod CloudTest() As %Status
-{
-    quit ##class(IrisOps.CloudBroker).Test(%request, %response)
 }
 
 }

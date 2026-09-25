@@ -183,7 +183,7 @@ export function evaluate(t: Telemetry): Finding[] {
   if (loginAudit && loginAudit.Enabled === false) {
     findings.push(f('audit-login-off', 'security', 'warning', 'Login auditing is disabled', 'The %System/%Login/Login audit event is not enabled — successful logins are not recorded.', [
       { label: 'Event', value: '%System/%Login/Login' }, { label: 'Enabled', value: 'false' },
-    ], 'Enable login auditing for security forensics.', '/security/audit'));
+    ], 'Enable login auditing for security forensics.', '/security/audit?event=%25System%2F%25Login%2FLogin'));
   }
 
   // ---- Web apps ----

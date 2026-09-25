@@ -10,7 +10,7 @@
       <SourcesRoot>src</SourcesRoot>
       <Resource Name="IrisOps.PKG" Directory="cls"/>
       <CSPApplication CookiePath="/irisops/" DefaultTimeout="900" DeployPath="${cspdir}/irisops" DispatchClass="IrisOps.Router" MatchRoles=":{$globalsDbRole}" PasswordAuthEnabled="1" Recurse="1" RedirectEmptyPath="1" ServeFiles="1" ServeFilesTimeout="3600" SourcePath="/web" UnauthenticatedEnabled="1" Url="/irisops" UseSessionCookie="2"/>
-      <CSPApplication DispatchClass="IrisOps.Router" JWTAuthEnabled="1" PasswordAuthEnabled="0" Recurse="0" ServeFiles="0" UnauthenticatedEnabled="0" Url="/irisops-broker" UseSessionCookie="0"/>
+      <CSPApplication DispatchClass="IrisOps.Broker.Router" JWTAuthEnabled="1" PasswordAuthEnabled="1" Recurse="1" ServeFiles="0" UnauthenticatedEnabled="0" Url="/irisops-broker" UseSessionCookie="0"/>
     </Module>
   </Document>
 </Export>

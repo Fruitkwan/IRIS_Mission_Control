@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { CheckCircle2, CircleDashed, Download, Loader2, Search, Stethoscope } from 'lucide-react';
 import { axios } from '../../api/axios-instance';
 import { resultOf } from '../../api/helpers';
@@ -10,6 +11,7 @@ import { EvidenceView, FindingCard } from '../../components/FindingCard';
 import { runDiagnostics } from '../../health/engine';
 import type { Finding, HealthReport } from '../../health/types';
 import { cn } from '../../lib/utils';
+import { saveDoctorSnapshot } from '../../observability/snapshots';
 
 function exportReport(r: HealthReport) {
   const lines = [
@@ -56,6 +58,7 @@ export function DoctorPage() {
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState<Finding['severity'] | 'all'>('all');
   const stepsRef = useRef<HTMLDivElement>(null);
+  const pendingAuditComparison = useRef(false);
 
   const diagnose = async () => {
     setRunning(true);
@@ -71,6 +74,12 @@ export function DoctorPage() {
         stepsRef.current?.scrollTo(0, stepsRef.current.scrollHeight);
       });
       setReport(r);
+      if (pendingAuditComparison.current &&
+        !r.collectorErrors.some((error) => error.collector === 'auditEvents') &&
+        !r.findings.some((finding) => finding.ruleId === 'audit-login-off')) {
+        saveDoctorSnapshot('After login audit fix', r.overall, true);
+        pendingAuditComparison.current = false;
+      }
       setSteps((s) => s.map((x) => ({ ...x, done: true })));
     } finally {
       setRunning(false);
@@ -114,6 +123,10 @@ export function DoctorPage() {
       await axios.put('/v2/security/audit/event', { Enabled: true }, { params: auditParams });
       const verified = resultOf<Record<string, unknown>>((await axios.get('/v2/security/audit/event', { params: auditParams })).data);
       if (verified?.Enabled !== true) throw new Error('IRIS did not confirm that the login event is enabled.');
+      if (report) {
+        saveDoctorSnapshot('Before login audit fix', report.overall, false);
+        pendingAuditComparison.current = true;
+      }
       setPreviousScore(report?.overall ?? null);
       setAuditState({ ...auditState, eventEnabled: true });
       setAuditResult('IRIS confirmed login auditing is enabled. Run diagnostics again to verify the finding and assessment score.');
@@ -217,7 +230,7 @@ export function DoctorPage() {
           <p className="text-xs text-ink-500">{report.scoreMethod}{report.collectorErrors.length > 0 && ' Some data sources were unavailable, so this assessment is incomplete.'}</p>
 
           {previousScore !== null && (
-            <p className="text-xs text-ink-400">Previous assessment: {previousScore}/100 · Current: {report.overall}/100. Compare the findings below to confirm the change.</p>
+            <p className="text-xs text-ink-400">Previous assessment: {previousScore}/100 · Current: {report.overall}/100. Compare the findings below to confirm the change. <Link to="/observability/timeline" className="text-accent-300 hover:underline">View before/after in Time Machine →</Link></p>
           )}
 
           {report.findings.length > 0 && (

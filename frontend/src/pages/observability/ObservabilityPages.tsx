@@ -28,8 +28,14 @@ const METRIC_LABELS: [keyof MetricSnapshot, string][] = [
 export function TimeMachinePage() {
   const { toast } = useToast();
   const [snaps, setSnaps] = useState(getMetricSnapshots());
-  const [a, setA] = useState<string>('');
-  const [b, setB] = useState<string>('');
+  const [a, setA] = useState<string>(() => {
+    const saved = getMetricSnapshots();
+    return saved[0]?.label === 'After login audit fix' && saved[1]?.label === 'Before login audit fix' ? saved[1].ts : '';
+  });
+  const [b, setB] = useState<string>(() => {
+    const saved = getMetricSnapshots();
+    return saved[0]?.label === 'After login audit fix' && saved[1]?.label === 'Before login audit fix' ? saved[0].ts : '';
+  });
   const [busy, setBusy] = useState(false);
 
   const snap = async () => {
@@ -56,7 +62,7 @@ export function TimeMachinePage() {
           <label className="mb-1 block text-[11px] text-ink-400">From</label>
           <Select value={a} onChange={(e) => setA(e.target.value)} className="w-64">
             <option value="">— select snapshot —</option>
-            {snaps.map((s) => <option key={s.ts} value={s.ts}>{fmtDate(s.ts)}</option>)}
+            {snaps.map((s) => <option key={s.ts} value={s.ts}>{s.label ? `${s.label} · ` : ''}{fmtDate(s.ts)}</option>)}
           </Select>
         </div>
         <GitCompareArrows className="mb-2 h-4 w-4 text-ink-500" />
@@ -64,7 +70,7 @@ export function TimeMachinePage() {
           <label className="mb-1 block text-[11px] text-ink-400">To</label>
           <Select value={b} onChange={(e) => setB(e.target.value)} className="w-64">
             <option value="">— select snapshot —</option>
-            {snaps.map((s) => <option key={s.ts} value={s.ts}>{fmtDate(s.ts)}</option>)}
+            {snaps.map((s) => <option key={s.ts} value={s.ts}>{s.label ? `${s.label} · ` : ''}{fmtDate(s.ts)}</option>)}
           </Select>
         </div>
       </Card>
@@ -72,6 +78,18 @@ export function TimeMachinePage() {
       {sa && sb && (
         <Card>
           <CardHeader title={`What changed? ${fmtDate(sa.ts)} → ${fmtDate(sb.ts)}`} />
+          {(sa.assessmentScore !== undefined || sb.assessmentScore !== undefined || sa.loginAuditEnabled !== undefined || sb.loginAuditEnabled !== undefined) && (
+            <div className="grid grid-cols-1 gap-px border-b border-ink-800 bg-ink-800 md:grid-cols-2">
+              <div className="bg-ink-900 p-3 text-sm">
+                <div className="text-[11px] text-ink-500">IRIS Ops assessment</div>
+                <div className="mt-1 font-mono">{sa.assessmentScore ?? '—'} → {sb.assessmentScore ?? '—'}</div>
+              </div>
+              <div className="bg-ink-900 p-3 text-sm">
+                <div className="text-[11px] text-ink-500">%System/%Login/Login audit event</div>
+                <div className="mt-1 font-mono">{sa.loginAuditEnabled === undefined ? '—' : sa.loginAuditEnabled ? 'enabled' : 'disabled'} → {sb.loginAuditEnabled === undefined ? '—' : sb.loginAuditEnabled ? 'enabled' : 'disabled'}</div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-px bg-ink-800">
             {METRIC_LABELS.map(([key, label]) => {
               const va = sa[key] as number | undefined;
@@ -101,6 +119,7 @@ export function TimeMachinePage() {
         <DataTable<MetricSnapshot>
           columns={[
             { key: 'ts', header: 'Captured', render: (s) => fmtDate(s.ts) },
+            { key: 'label', header: 'Event', render: (s) => s.label ?? 'Manual snapshot' },
             { key: 'processes', header: 'Processes' },
             { key: 'locks', header: 'Locks' },
             { key: 'globalRefsPerSec', header: 'Gref/s' },

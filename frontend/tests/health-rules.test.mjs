@@ -34,5 +34,10 @@ test('repeated resources do not each deduct the full rule penalty', () => {
 
 test('login audit finding remains available for the demo workflow', () => {
   const report = toReport(evaluate({ auditEvents: [{ EventName: '%System/%Login/Login', Enabled: false }] }), []);
-  assert.equal(report.findings.find((finding) => finding.ruleId === 'audit-login-off').severity, 'warning');
+  const finding = report.findings.find((item) => item.ruleId === 'audit-login-off');
+  assert.equal(finding.severity, 'warning');
+  assert.equal(new URLSearchParams(finding.link.split('?')[1]).get('event'), '%System/%Login/Login');
+  const fixed = toReport(evaluate({ auditEvents: [{ EventName: '%System/%Login/Login', Enabled: true }] }), []);
+  assert.equal(fixed.findings.some((item) => item.ruleId === 'audit-login-off'), false);
+  assert.ok(fixed.overall > report.overall);
 });

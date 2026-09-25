@@ -1,6 +1,7 @@
 // Module-level token holder so the axios interceptor can access tokens
 // without importing the React store (avoids circular imports with codegen).
 const LS_KEY = 'irisops.auth';
+const BROKER_KEY = 'irisops.broker-auth';
 
 type Stored = { accessToken: string; refreshToken: string; user: string };
 
@@ -16,6 +17,15 @@ let state = load();
 const listeners = new Set<() => void>();
 
 export const tokenStore = {
+  get brokerAccessToken() {
+    try { return JSON.parse(sessionStorage.getItem(BROKER_KEY) ?? '{}').accessToken ?? ''; } catch { return ''; }
+  },
+  setBroker(accessToken: string) {
+    sessionStorage.setItem(BROKER_KEY, JSON.stringify({ accessToken }));
+  },
+  clearBroker() {
+    sessionStorage.removeItem(BROKER_KEY);
+  },
   get accessToken() {
     return state.accessToken;
   },
@@ -36,6 +46,7 @@ export const tokenStore = {
   clear() {
     state = { accessToken: '', refreshToken: '', user: '' };
     localStorage.removeItem(LS_KEY);
+    sessionStorage.removeItem(BROKER_KEY);
     listeners.forEach((l) => l());
   },
   subscribe(l: () => void) {

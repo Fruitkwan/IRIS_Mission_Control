@@ -95,13 +95,16 @@ export async function testConnection(c: CloudConnection): Promise<TestResult> {
   if (missing.length) {
     return { status: 'not-configured', detail: `Missing configuration: ${missing.join(', ')}` };
   }
+  if (!tokenStore.brokerAccessToken) {
+    return { status: 'disconnected', detail: 'Broker session unavailable. Sign out and sign in again, then retry.' };
+  }
   try {
     const response = await fetch('/irisops-broker/api/cloud/test', {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
-        ...(tokenStore.accessToken ? { Authorization: `Bearer ${tokenStore.accessToken}` } : {}),
+        Authorization: `Bearer ${tokenStore.brokerAccessToken}`,
       },
       body: JSON.stringify({ provider: c.provider, config: c.config }),
     });
@@ -109,7 +112,9 @@ export async function testConnection(c: CloudConnection): Promise<TestResult> {
     if (!contentType.includes('application/json')) {
       return {
         status: 'disconnected',
-        detail: `Broker returned HTTP ${response.status} with ${contentType || 'an empty content type'}. Verify that /irisops-broker is deployed with JWT authentication.`,
+        detail: response.status === 401 || response.status === 403
+          ? 'Broker session expired or access denied. Sign out and sign in again, then retry.'
+          : `Broker returned HTTP ${response.status} with ${contentType || 'an empty content type'}. Check the broker dispatch class and server logs.`,
       };
     }
     const result = (await response.json()) as TestResult;

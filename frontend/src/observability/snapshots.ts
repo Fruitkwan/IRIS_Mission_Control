@@ -6,6 +6,9 @@ const MAX = 200;
 
 export interface MetricSnapshot {
   ts: string;
+  label?: string;
+  assessmentScore?: number;
+  loginAuditEnabled?: boolean;
   globalRefsPerSec?: number;
   diskReads?: number;
   diskWrites?: number;
@@ -36,6 +39,12 @@ const load = <T,>(key: string): T[] => {
 
 export function getMetricSnapshots(): MetricSnapshot[] {
   return load<MetricSnapshot>(METRICS_LS);
+}
+
+export function saveDoctorSnapshot(label: string, assessmentScore: number, loginAuditEnabled: boolean): MetricSnapshot {
+  const snap: MetricSnapshot = { ts: new Date().toISOString(), label, assessmentScore, loginAuditEnabled };
+  localStorage.setItem(METRICS_LS, JSON.stringify([snap, ...getMetricSnapshots()].slice(0, MAX)));
+  return snap;
 }
 
 export async function captureMetricSnapshot(): Promise<MetricSnapshot> {
