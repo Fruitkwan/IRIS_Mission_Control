@@ -1,207 +1,332 @@
 # IRIS Mission Control
 
-**Manage. Diagnose. Secure. Integrate. Automate.**
+**Diagnose your InterSystems IRIS instance, see the evidence, and fix it safely — from a browser or an AI agent.**
 
-An intelligent operations, security, FHIR and multi-cloud control plane for
-**InterSystems IRIS**, built on the
-[`/api/admin` SysAdmin APIs](https://github.com/intersystems-community/sysadmin-api-specification)
-(IRIS 2026.2+). Not a re-skin of the classic Management Portal — it answers the
-higher-level question: *is my IRIS environment healthy, and what needs attention?*
+[![CI](https://github.com/Fruitkwan/IRIS_Mission_Control/actions/workflows/ci.yml/badge.svg)](https://github.com/Fruitkwan/IRIS_Mission_Control/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![IRIS 2026.2](https://img.shields.io/badge/IRIS-2026.2-2f6fad)
 
-## Features
+<!--
+  Add these links once they exist, and move this row up under the badges:
+  **[▶ Watch the 3-minute video](YOUTUBE_URL)** · **[Try the live demo](DEMO_URL)** ·
+  [Developer Community article](ARTICLE_URL) · [Open Exchange](OPEX_URL)
+-->
 
-### Foundation — full modern management portal
-- Live mission-control dashboard polling `/v2/monitor`
-- Process task-manager (suspend / resume / terminate / broadcast)
-- Databases & volumes, namespaces & mappings, devices, locks, web sessions,
-  license, journal, ECP, work-queue manager, DocDB, filesystem access
-- Security center: users, roles, resources, services, **permission matrix**,
-  audit events, LDAP, SSL/TLS, encryption, web-auth, MFT, SQL privileges
-  (grant/revoke), privileged routines
-- Secrets: wallet collections, X.509 credentials, OAuth 2.0
-- Task management: list, run, suspend, resume, history, upcoming
-- Web applications + **built-in REST API explorer** over the full OpenAPI spec
-- Unified log console (API activity + audit + task history + journal) with
-  incident grouping
+![IRIS Doctor: diagnose, review the exact change, confirm, verify](docs/images/doctor-demo.gif)
 
-### Intelligence
-- **Operations Center** (`/operations`) — per-subsystem rule-based assessment scores and a
-  severity-ranked finding feed.
-- **IRIS Doctor** (`/doctor`) — one-click diagnosis: runs every collector,
-  evaluates deterministic rules, and produces **evidence-backed findings**
-  with recommendations and deep links. Export the report as Markdown.
-- **Safe remediation** — five findings can be fixed from the finding drawer:
-  login auditing disabled, an unauthenticated custom web app, journal
-  freeze-on-error disabled, a suspended task, and an expiring or expired
-  certificate (guided). Each fix works like this:
-  - **Preview** — shows the live before/after values of each field, the scope,
-    the operational impact, and how to roll back.
-  - **Confirm and apply** — IRIS Mission Control re-reads the configuration
-    first and refuses if it changed since the preview.
-  - **Verify** — a fresh read confirms the change.
-  - **Audit** — the change is written to the IRIS audit log as
-    `IrisOps/Remediation/Apply`, under the signed-in user.
-  - **Undo** — restores the exact previous values, but only if nothing else
-    changed the resource in the meantime.
+## In 30 seconds
 
-  Fixes change only the named field. The portal's own shell app is protected
-  from the web-app fix.
-- Rules engine covers: database mount/read-only state, journal space &
-  freeze-on-error, lock table, serious system alerts, never-backed-up
-  instances, insecure/unauthenticated services & web apps, default accounts,
-  disabled login auditing, suspended/failed tasks, expiring certificates,
-  license saturation, runaway processes.
-  Scores use one penalty per distinct finding type and are prioritization aids,
-  not InterSystems health metrics. Collector failures are shown as incomplete data.
+Operators don't want forty admin screens. They want to know what is wrong with
+the instance, how sure the tool is, and how to fix it without breaking anything.
+IRIS Mission Control is a modern portal built on the
+[`/api/admin` SysAdmin APIs](https://github.com/intersystems-community/sysadmin-api-specification).
+At its center is **IRIS Doctor**.
 
-### AI & agent interface
-- **MCP server** (`mcp-server/`, Streamable HTTP) — 16 read-only tools
-  (`iris_get_health`, `iris_list_databases`, `iris_list_processes`,
-  `iris_get_audit_events`, …) so Claude/ChatGPT/IDE agents can inspect the
-  instance. Shares the portal's rules engine — the same findings the GUI shows.
-  Every call is audited (sanitized args) and visible on the `/mcp` page.
+- **Diagnose:** IRIS Doctor reads live telemetry and runs deterministic rules.
+  Every finding it reports comes with evidence.
+- **Fix:** the change is previewed field by field, applied, verified, and
+  recorded in the IRIS audit log, with a one-click undo.
+- **AI agents:** an MCP server gives them the same findings.
 
-### Healthcare
-- **FHIR Control Center** — discovers `/fhir*` web apps, probes
-  `/metadata`, tracks version/resources/latency.
-- **FHIR Explorer** — Postman-style resource search/read.
-- **CapabilityStatement visualizer** and **resource validator**.
-- Ships with a labeled **synthetic demo server** (R4 CapabilityStatement +
-  sample Patients/Observations/Encounters) so every screen works on plain
-  IRIS Community Edition — on IRIS for Health it talks to real endpoints.
+## What makes it different
 
-### Cloud
-- Cloud secrets broker: live Azure Key Vault OAuth/client-credentials validation
-  plus AWS Secrets Manager / GCP Secret Manager connection registry and the
-  **IRIS wallet** as a local provider.
-- Azure client secrets are resolved from the wallet at call time. Secret values
-  and access tokens are never returned to the browser or written to logs.
+1. **Findings you can check.** 28 deterministic rules cover databases,
+   journals, locks, security, audit, web apps, tasks, certificates and
+   licensing. Each finding shows the raw evidence it is based on and links to
+   the exact page where you can act on it. Every rule has a test, and CI fails if
+   a rule is added without one.
+2. **Fixes you can trust.** Five findings can be fixed from the finding drawer:
+   - **Preview:** the exact before/after values from live IRIS.
+   - **Confirm:** the configuration is re-read first, and the fix is refused if
+     it changed since the preview.
+   - **Apply and verify:** the fix is confirmed with a fresh read.
+   - **Audit:** a real IRIS audit record is written under your username.
+   - **Undo:** restores the exact previous values.
+3. **One engine, two interfaces.** The portal and the MCP server share the same
+   collectors and the same rules. When Claude, ChatGPT or an IDE agent asks
+   "is my IRIS healthy?", it gets the same evidence-backed findings you see.
 
-### Observability
-- **Time Machine** — capture operational snapshots, diff two points in time.
-- **Configuration Drift** — snapshot users/roles/resources/web apps/services/
-  SSL/journal and diff any two snapshots line-by-line.
-- **Universal search & command palette** (`Ctrl+K`) — pages *and* live entities
-  (databases, namespaces, users, roles, web apps, tasks).
-- **Config export** — one-click JSON snapshot of the whole instance config.
-
-## Quick start (Docker)
+## Judge this first — a 5-minute walkthrough
 
 ```bash
 git clone https://github.com/Fruitkwan/IRIS_Mission_Control.git irisops
 cd irisops
+docker compose up -d --build        # wait until `docker ps` shows irisops (healthy)
+```
+
+1. Open **http://localhost:52773/irisops/** and sign in as `_SYSTEM` / `SYS`.
+2. Open **IRIS Doctor** from the sidebar, or go to
+   http://localhost:52773/irisops/#/doctor. Click **Diagnose IRIS**.
+3. Find **"Freeze-on-error is disabled"**. It is disabled in the default
+   container. Click **View evidence**, then **Preview change**. You will see
+   `FreezeOnError: false → true` with the scope, the operational impact and the
+   rollback.
+4. Click **Confirm and enable journal freeze-on-error**. IRIS confirms the
+   change with a fresh read, and the drawer shows it was recorded in the IRIS
+   audit log.
+5. Click **Run diagnostics and compare**. The finding is gone, the score goes
+   up, and **Change history** shows who changed what.
+6. Open **Time Machine** (sidebar → Observability) to see the before/after
+   snapshots.
+7. Ask the MCP server for the same assessment:
+
+   ```bash
+   curl -s -X POST http://localhost:3333/mcp -H 'Content-Type: application/json' \
+     -H 'Accept: application/json, text/event-stream' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"iris_get_health","arguments":{}}}'
+   ```
+
+8. Optional: re-open the finding and click **Undo change**. The previous value
+   is restored, and an `IrisOps/Remediation/Rollback` record is written.
+
+<table>
+<tr>
+<td><img src="docs/images/doctor-findings.png" alt="IRIS Doctor findings ranked by severity"></td>
+<td><img src="docs/images/doctor-remediation.png" alt="Remediation drawer showing the exact change before confirming"></td>
+</tr>
+<tr>
+<td align="center">Evidence-backed findings, highest severity first</td>
+<td align="center">Review the exact change before applying it</td>
+</tr>
+</table>
+
+## Compared with the classic Management Portal
+
+| Task | Classic Management Portal | IRIS Mission Control |
+|---|---|---|
+| Find what needs attention | Check each subsystem's page and the dashboard indicators | One diagnosis across 19 data sources, with findings ranked by severity and evidence for each |
+| Understand a problem | Read raw settings | Each finding explains the operational impact and links to the page that fixes it |
+| Change a risky setting | Edit a form and save | Field-level preview, check for concurrent changes, verification, then undo (for five findings) |
+| Know who fixed what | Depends on which system audit events are enabled | Every fix writes `IrisOps/Remediation/Apply` or `/Rollback` with the before and after values |
+| AI and automation | — | MCP server with 16 read-only tools sharing the Doctor's rules |
+
+IRIS Mission Control is built only on `/api/admin`. Anything that API does not
+expose still needs the classic portal.
+
+## Tested with
+
+| Component | Version |
+|---|---|
+| InterSystems IRIS | IRIS for UNIX 2026.2 (Build 221U), Community Edition, image `intersystemsdc/iris-community:2026.2-zpm` |
+| Node.js (build and MCP) | 22 in CI and Docker; 24 locally |
+| Browser | Chromium (Playwright demo recording) |
+
+Other editions, including IRIS for Health with real FHIR endpoints, have not been
+tested yet.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    UI["React SPA<br/>IRIS Doctor · Ops Center · admin pages"]
+  end
+  subgraph IRIS["InterSystems IRIS 2026.2"]
+    SPA["/irisops<br/>IrisOps.Router (static shell)"]
+    API["/api/admin<br/>SysAdmin REST APIs (JWT)"]
+    BRK["/irisops-broker (JWT)<br/>IrisOps.Broker.Router"]
+    AUD[("IRIS audit log<br/>IrisOps/Remediation/*")]
+  end
+  subgraph MCP["MCP server (Node)"]
+    TOOLS["16 read-only tools"]
+  end
+  Engine["Shared health engine<br/>collectors → rules → findings + scores"]
+  Agent["AI agent / IDE"]
+
+  UI --> SPA
+  UI -- telemetry, fixes --> API
+  UI -- audit + history --> BRK --> AUD
+  UI -.uses.-> Engine
+  TOOLS -.uses.-> Engine
+  Agent -- Streamable HTTP --> TOOLS -- Basic auth --> API
+```
+
+- `frontend/src/health/`: the engine. `collect.ts` gathers telemetry and is
+  used by both the portal and MCP. `rules.ts` holds the 28 rules and the
+  scoring. `remediation.ts` holds the fixes.
+- `src/cls/IrisOps/`: IRIS classes.
+  - `Router` serves the SPA.
+  - `Broker.Router` is the JWT-protected broker.
+  - `Remediation` writes and reads the audit records.
+  - `CloudBroker` runs server-side cloud checks.
+- `mcp-server/`: the standalone MCP service.
+- `frontend/src/api/generated/`: a typed client generated from the OpenAPI spec.
+
+## Features
+
+<details>
+<summary><b>Full feature list</b></summary>
+
+### Intelligence
+- **IRIS Doctor** (`/doctor`): one-click diagnosis with evidence-backed
+  findings, recommendations, deep links, Markdown export and safe remediation.
+- **Operations Center** (`/operations`): a rule-based score for each subsystem
+  and a finding feed ranked by severity.
+- **Rule coverage:**
+  - database mount and read-only state
+  - journal space and freeze-on-error
+  - lock table
+  - serious system alerts
+  - instances that have never been backed up
+  - insecure or unauthenticated services and web apps
+  - default accounts
+  - disabled login auditing
+  - suspended or failed tasks
+  - expiring certificates
+  - license saturation
+  - runaway processes
+- **Scoring:** each distinct finding type costs one penalty. Scores help you
+  prioritize; they are not InterSystems health metrics. If a data source
+  cannot be read, the report marks the assessment as incomplete.
+
+### Safe remediation
+| Finding | Fix |
+|---|---|
+| Login auditing disabled | Enables only `%System/%Login/Login`. Blocked while the master audit switch is off. |
+| Unauthenticated custom web app | Clears only the Unauthenticated flag. The portal's own `/irisops` shell is protected. |
+| Journal freeze-on-error disabled | Sets `FreezeOnError`; every other journal setting is sent back unchanged. |
+| Suspended task | Resumes only that task, after showing its class, namespace and next run. |
+| Certificate expiring or expired | Guided steps, then a check of the new expiry date. Certificates are never generated or uploaded. |
+
+### Management portal
+- Live dashboard, process manager (suspend / resume / terminate / broadcast)
+- Databases and volumes, namespaces and mappings, devices, locks, web
+  sessions, license, journal, ECP, work-queue manager, DocDB, filesystem access
+- **Security center:**
+  - users, roles and resources
+  - services, and a permission matrix
+  - audit
+  - LDAP, SSL/TLS and encryption
+  - web auth and MFT
+  - SQL privileges and privileged routines
+- **Secrets:** wallet collections, X.509 credentials and OAuth 2.0
+- **Tasks:** list, run, suspend, resume, history and upcoming runs
+- **Web applications**, plus a REST API explorer over the full OpenAPI spec
+- **Unified log console:** API activity, audit, task history and journal in
+  one place, with incident grouping
+
+### AI and agent interface
+- **MCP server** (Streamable HTTP) with 16 read-only tools, for example
+  `iris_get_health`, `iris_list_databases` and `iris_get_audit_events`.
+  - Every call is audited, with secret-looking arguments redacted.
+  - The audit is visible on the `/mcp` page.
+
+### Healthcare
+- **FHIR Control Center:** discovers `/fhir*` web apps, then probes
+  `/metadata` and reports the version, resources and latency.
+- FHIR resource explorer, CapabilityStatement visualizer and resource
+  validator.
+- A clearly labeled synthetic demo server, so the FHIR screens work on
+  Community Edition.
+
+### Cloud
+- **Cloud secrets broker:**
+  - live checks of Azure Key Vault client credentials
+  - a connection registry for AWS Secrets Manager and GCP Secret Manager
+  - the IRIS wallet as a local provider
+- Secrets are resolved from the wallet on the server. Secret values and
+  access tokens never reach the browser.
+
+### Observability
+- **Time Machine:** capture operational snapshots and compare any two points in time.
+- **Configuration Drift:** diff users, roles, resources, web apps, services,
+  SSL and journal configuration between snapshots.
+- **Universal search** (`Ctrl+K`) across pages and live entities, and a
+  one-click JSON export of the instance configuration.
+
+</details>
+
+## Install
+
+### Docker
+
+```bash
 docker compose up -d --build
 ```
 
-- Portal: **http://localhost:52773/irisops/** (log in with `_SYSTEM` / `SYS`)
-- MCP endpoint for AI clients: **http://localhost:3333/mcp**
-- MCP status/audit API: `http://localhost:3333/status`, `/tools`, `/audit`
+- Portal: **http://localhost:52773/irisops/** (`_SYSTEM` / `SYS`)
+- MCP endpoint: **http://localhost:3333/mcp**. Status, tool list and audit
+  are at `http://localhost:3333/status`, `/tools` and `/audit`.
 
-> The `-zpm` base image's post-start hook can fail once on first boot
-> (upstream `dbapi` regression) — `restart: unless-stopped` in compose handles
-> it automatically.
+> The `-zpm` base image's post-start hook can fail once on first boot (an
+> upstream `dbapi` regression). The compose file's `restart: unless-stopped`
+> recovers from it automatically.
 
-## Install on an existing instance (ZPM)
+### Existing instance (ZPM)
 
-Requires IRIS 2026.2+ and a prebuilt `web/` bundle (committed, or rebuild via
-`cd frontend && npm ci && npm run build`).
+Requires IRIS 2026.2+. The prebuilt `web/` bundle is committed.
 
 ```
 zpm "load /path/to/irisops"
 ```
 
-Registers two web applications:
+This registers two web applications:
+- `/irisops` serves the portal shell through `IrisOps.Router`. The shell loads
+  without authentication so the login page can appear. Every API call is
+  authenticated by `/api/admin`.
+- `/irisops-broker` is JWT-authenticated. It serves the remediation audit and
+  history endpoints and the server-side cloud connection tests.
 
-- `/irisops` — serves the SPA via dispatch class `IrisOps.Router`
-  (unauthenticated for the static shell; every API call is JWT-gated by
-  `/api/admin`). Deploys assets to `${cspdir}/irisops`.
-- `/irisops-broker` — JWT-authenticated dispatch to `IrisOps.CloudBroker`,
-  which performs server-side cloud connection tests so secret values never
-  reach the browser.
-
-## MCP client setup
+### MCP client setup
 
 ```json
-{
-  "mcpServers": {
-    "irisops": { "url": "http://localhost:3333/mcp" }
-  }
-}
+{ "mcpServers": { "irisops": { "url": "http://localhost:3333/mcp" } } }
 ```
 
-Then ask your MCP client: *"Check my IRIS instance and identify anything
-requiring attention"* — it calls `iris_get_health` and returns the same
-evidence-backed findings the portal shows.
+Then ask: *"Check my IRIS instance and identify anything requiring
+attention."* The MCP server reads `IRIS_URL`, `IRIS_USER` and `IRIS_PASSWORD`
+from its environment (see `.env.example`).
 
-Credentials are read by the MCP server from env (`IRIS_URL`, `IRIS_USER`,
-`IRIS_PASSWORD` — see `.env.example`) and are never exposed to the browser.
-
-## Development
+## Development and testing
 
 ```bash
-# Terminal 1 — IRIS with SysAdmin APIs
-docker run -d --name iris-dev -p 1972:1972 -p 52773:52773 \
-  intersystemsdc/iris-community:2026.2-zpm
-
-# Terminal 2 — frontend (proxies /api -> localhost:52773)
-cd frontend && npm ci && npm run dev    # http://localhost:5173
-
-# Terminal 3 — MCP server
-cd mcp-server && npm install && IRIS_URL=http://localhost:52773/api/admin npm start
+docker run -d --name iris-dev -p 1972:1972 -p 52773:52773 intersystemsdc/iris-community:2026.2-zpm
+cd frontend && npm ci && npm run dev          # http://localhost:5173, proxies /api to :52773
+cd mcp-server && npm ci && IRIS_URL=http://localhost:52773/api/admin npm start
 ```
 
 | Command | Purpose |
 |---|---|
-| `npm run generate` | Inject `operationId`s into the spec + regenerate the typed client (orval) |
-| `npm run build` | Typecheck + production build into `web/` |
+| `npm test` | Rule, scoring, collector and remediation tests (frontend); secret-redaction tests (mcp-server) |
+| `npm run build` | Type-check and production build into `web/` |
 | `npm run lint` | oxlint |
-| `npm test` | Rule engine, scoring and collector tests (frontend); secret-redaction tests (mcp-server) |
+| `npm run generate` | Regenerate the typed API client from the OpenAPI spec |
+| `npm run record:demo` | Record the captioned IRIS Doctor demo video (see `demo/README.md`) |
 
-### Testing
+**Tests** (`frontend/tests/`):
+- Every rule is tested for its trigger, severity, category, evidence and deep
+  link. A meta-test fails if a rule is added without a test case.
+- Sample SysAdmin API responses are run through the shared collector,
+  including partial collector failures.
+- Every fix is tested against an in-memory IRIS for preview, drift refusal,
+  apply and verify, and exact rollback.
 
-`frontend/tests/health-rules.test.mjs` covers every IRIS Doctor rule. A
-meta-test fails if a rule is added to `rules.ts` without a test case. Each rule
-is tested for its trigger, severity, category, evidence and deep link. The
-suite also covers thresholds, scoring and the rule that repeated resources
-don't stack penalties. `frontend/tests/collectors.test.mjs` runs sample
-SysAdmin API responses through the same collector the portal and MCP use,
-including partial collector failures. CI (`.github/workflows/ci.yml`) runs
-lint, tests and the production build. It also boots the MCP server, then
-brings up the full Docker stack and waits for the IRIS healthcheck.
-
-## Architecture
-
-```
-browser ──► /irisops/          CSP web app serves the SPA (static + IrisOps.Router)
-        ──► /api/admin/...     SysAdmin REST APIs (JWT login + refresh)
-
-mcp client ──► :3333/mcp       MCP server (Node, streamable HTTP)
-                  └──► /api/admin  (same APIs, Basic auth from env)
-```
-
-- `frontend/` — React 19 + TypeScript + Tailwind v4 + TanStack Query + Axios.
-  `src/api/generated/` is produced by orval from `spec/mainspec_v2.json` after
-  `scripts/add-operation-ids.mjs` injects deterministic `operationId`s.
-- `frontend/src/health/` — collectors → normalized telemetry → rules →
-  findings + scores (shared by the portal *and* the MCP server).
-- `frontend/src/fhir/`, `frontend/src/cloud/`, `frontend/src/observability/` —
-  FHIR client/demo data, provider abstraction, snapshot engines.
-- `src/cls/IrisOps/Router.cls` — CSP dispatch class (SPA entrypoint, deep-link
-  fallback, `/irisops/health`, cloud-broker route).
-- `src/cls/IrisOps/CloudBroker.cls` — server-side cloud connection tester
-  (Azure Key Vault live validation; secrets stay server-side).
-- `mcp-server/` — standalone MCP service.
-- `module.xml`, `iris.script`, `Dockerfile`, `docker-compose.yml` — packaging.
+**CI** (`.github/workflows/ci.yml`):
+- runs lint, the tests and the production build
+- boots the MCP server
+- brings up the full Docker stack and checks the IRIS healthcheck, the portal,
+  `/api/admin`, and MCP's connection to IRIS
 
 ## Security model
 
-- JWT login (`/login`) with transparent refresh; Basic auth also supported by the API.
-- All mutating endpoints go through the authenticated session; no arbitrary
-  SQL/ObjectScript/shell execution is exposed.
-- MCP tools are allow-listed and read-only; arguments are sanitized before audit.
-- Cloud secret values are never rendered. Live connection tests retrieve one
-  value inside the broker only to prove access, then immediately discard it.
-- FHIR demo content is synthetic and clearly labeled.
+- **API authentication:** all SysAdmin calls use JWT login with transparent
+  refresh.
+  - The portal's access and refresh tokens are stored in `localStorage`.
+  - The broker token is stored in `sessionStorage`.
+  - This makes cross-site scripting the main threat. The app code never
+    injects raw HTML (no `dangerouslySetInnerHTML` or `innerHTML`).
+  - Moving to HttpOnly cookies is planned.
+- **No arbitrary execution:** no endpoint runs arbitrary SQL, ObjectScript or
+  shell commands.
+- **Remediation:**
+  - Each fix is a fixed, allow-listed change.
+  - The audit endpoint copies only known fields into the IRIS audit log, and
+    records the authenticated IRIS user.
+- **MCP:** tools are allow-listed and read-only. Arguments are redacted
+  recursively before they are audited.
+- **Cloud secrets:** values are never rendered. A live connection test
+  retrieves one value inside the broker to prove access, then discards it.
+- **FHIR:** demo content is synthetic and clearly labeled.
 
 ## License
 
