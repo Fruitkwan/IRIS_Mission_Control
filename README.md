@@ -30,6 +30,22 @@ higher-level question: *is my IRIS environment healthy, and what needs attention
 - **IRIS Doctor** (`/doctor`) — one-click diagnosis: runs every collector,
   evaluates deterministic rules, and produces **evidence-backed findings**
   with recommendations and deep links. Export the report as Markdown.
+- **Safe remediation** — five findings can be fixed from the finding drawer:
+  login auditing disabled, an unauthenticated custom web app, journal
+  freeze-on-error disabled, a suspended task, and an expiring or expired
+  certificate (guided). Each fix works like this:
+  - **Preview** — shows the live before/after values of each field, the scope,
+    the operational impact, and how to roll back.
+  - **Confirm and apply** — IRIS Mission Control re-reads the configuration
+    first and refuses if it changed since the preview.
+  - **Verify** — a fresh read confirms the change.
+  - **Audit** — the change is written to the IRIS audit log as
+    `IrisOps/Remediation/Apply`, under the signed-in user.
+  - **Undo** — restores the exact previous values, but only if nothing else
+    changed the resource in the meantime.
+
+  Fixes change only the named field. The portal's own shell app is protected
+  from the web-app fix.
 - Rules engine covers: database mount/read-only state, journal space &
   freeze-on-error, lock table, serious system alerts, never-backed-up
   instances, insecure/unauthenticated services & web apps, default accounts,

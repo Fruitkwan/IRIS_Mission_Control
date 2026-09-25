@@ -137,7 +137,7 @@ export function evaluate(t: Telemetry): Finding[] {
   for (const task of t.tasks ?? []) {
     if (task.Suspended === true) {
       findings.push(f('task-suspended', 'tasks', 'info', `Task "${task.Name}" is suspended`, `Scheduled task ${task.Name} is suspended and will not run.`, [
-        { label: 'Task', value: str(task.Name) }, { label: 'Next scheduled', value: str(task.NextScheduled) || '—' },
+        { label: 'Task', value: str(task.Name) }, { label: 'Task ID', value: str(task.Id) }, { label: 'Next scheduled', value: str(task.NextScheduled) || '—' },
       ], 'Resume the task if it should be running.', '/tasks'));
     }
   }

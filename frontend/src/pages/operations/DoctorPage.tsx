@@ -1,16 +1,17 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, CircleDashed, Download, Loader2, Search, Stethoscope } from 'lucide-react';
-import { axios } from '../../api/axios-instance';
-import { resultOf } from '../../api/helpers';
+import { CheckCircle2, CircleDashed, Download, History, Loader2, Search, Stethoscope } from 'lucide-react';
 import { errText } from '../../components/toast';
 import { PageHeader } from '../../components/PageHeader';
 import { Badge, Button, Card, Input } from '../../components/ui';
 import { Drawer } from '../../components/DetailDrawer';
 import { EvidenceView, FindingCard } from '../../components/FindingCard';
+import { RemediationPanel } from '../../components/RemediationPanel';
 import { runDiagnostics } from '../../health/engine';
+import { remediationFor, type Remediation } from '../../health/remediation';
+import { remediationHistory, type RemediationRecord } from '../../health/remediationAudit';
 import type { Finding, HealthReport } from '../../health/types';
-import { cn } from '../../lib/utils';
+import { cn, fmtDate } from '../../lib/utils';
 import { saveDoctorSnapshot } from '../../observability/snapshots';
 
 function exportReport(r: HealthReport) {
@@ -45,20 +46,48 @@ function exportReport(r: HealthReport) {
   URL.revokeObjectURL(a.href);
 }
 
+function RemediationHistory({ refreshKey }: { refreshKey: number }) {
+  const [records, setRecords] = useState<RemediationRecord[] | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    // IRIS exposes new audit rows to SQL shortly after they are written; wait before refreshing.
+    const timer = setTimeout(() => remediationHistory().then(setRecords, (e) => setError(errText(e))), refreshKey ? 2000 : 0);
+    return () => clearTimeout(timer);
+  }, [refreshKey]);
+  if (error) return <p className="text-xs text-ink-500">Change history unavailable: {error}</p>;
+  if (!records?.length) return null;
+  return (
+    <Card className="p-4">
+      <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+        <History className="h-3.5 w-3.5" /> Change history · IRIS audit log
+      </h4>
+      <ul className="space-y-1.5 text-xs">
+        {records.slice(0, 10).map((r) => (
+          <li key={r.timestamp + r.action + r.description} className="flex flex-wrap items-baseline gap-x-2 text-ink-300">
+            <span className="font-mono text-ink-500">{fmtDate(r.timestamp)}</span>
+            <Badge tone={r.data?.outcome === 'failed' ? 'red' : r.action === 'Rollback' ? 'amber' : 'green'}>{r.action}</Badge>
+            <span>{r.data?.target ?? r.description}</span>
+            <span className="text-ink-500">{r.data?.changes?.map((c) => `${c.field}: ${c.before} → ${c.after}`).join(' · ')}</span>
+            <span className="ml-auto text-ink-500">by {r.username}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export function DoctorPage() {
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<{ name: string; done: boolean }[]>([]);
   const [report, setReport] = useState<HealthReport | null>(null);
   const [selected, setSelected] = useState<Finding | null>(null);
-  const [auditState, setAuditState] = useState<{ eventEnabled: boolean; masterEnabled: boolean } | null>(null);
-  const [auditBusy, setAuditBusy] = useState(false);
-  const [auditError, setAuditError] = useState('');
-  const [auditResult, setAuditResult] = useState('');
+  const [historyKey, setHistoryKey] = useState(0);
   const [previousScore, setPreviousScore] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState<Finding['severity'] | 'all'>('all');
   const stepsRef = useRef<HTMLDivElement>(null);
-  const pendingAuditComparison = useRef(false);
+  // A verified fix waiting for the next diagnostics run to confirm the finding cleared.
+  const pendingComparison = useRef<{ remediation: Remediation; finding: Finding } | null>(null);
 
   const diagnose = async () => {
     setRunning(true);
@@ -74,11 +103,12 @@ export function DoctorPage() {
         stepsRef.current?.scrollTo(0, stepsRef.current.scrollHeight);
       });
       setReport(r);
-      if (pendingAuditComparison.current &&
-        !r.collectorErrors.some((error) => error.collector === 'auditEvents') &&
-        !r.findings.some((finding) => finding.ruleId === 'audit-login-off')) {
-        saveDoctorSnapshot('After login audit fix', r.overall, true);
-        pendingAuditComparison.current = false;
+      const pending = pendingComparison.current;
+      if (pending &&
+        !r.collectorErrors.some((error) => error.collector === pending.remediation.source) &&
+        !r.findings.some((finding) => finding.ruleId === pending.finding.ruleId && finding.title === pending.finding.title)) {
+        saveDoctorSnapshot(`After fix: ${pending.remediation.title}`, r.overall, true);
+        pendingComparison.current = null;
       }
       setSteps((s) => s.map((x) => ({ ...x, done: true })));
     } finally {
@@ -86,56 +116,14 @@ export function DoctorPage() {
     }
   };
 
-  const auditParams = { source: '%System', type: '%Login', name: 'Login' };
-
-  const inspectAudit = async () => {
-    setAuditBusy(true);
-    setAuditError('');
-    setAuditState(null);
-    try {
-      const [event, master] = await Promise.all([
-        axios.get('/v2/security/audit/event', { params: auditParams }),
-        axios.get('/v2/security/audit/enabled'),
-      ]);
-      const currentEvent = resultOf<Record<string, unknown>>(event.data);
-      const currentMaster = resultOf<Record<string, unknown>>(master.data);
-      setAuditState({ eventEnabled: currentEvent?.Enabled === true, masterEnabled: currentMaster?.Enabled === true });
-    } catch (e) {
-      setAuditError(`Could not read current audit configuration: ${errText(e)}`);
-    } finally {
-      setAuditBusy(false);
+  const onApplied = useCallback((remediation: Remediation, finding: Finding) => {
+    if (report) {
+      saveDoctorSnapshot(`Before fix: ${remediation.title}`, report.overall, false);
+      pendingComparison.current = { remediation, finding };
     }
-  };
-
-  const enableLoginAudit = async () => {
-    if (!auditState || auditState.eventEnabled || !auditState.masterEnabled) return;
-    setAuditBusy(true);
-    setAuditError('');
-    setAuditResult('');
-    try {
-      // Recheck immediately before writing in case another administrator changed it.
-      const before = resultOf<Record<string, unknown>>((await axios.get('/v2/security/audit/event', { params: auditParams })).data);
-      if (before?.Enabled !== false) {
-        setAuditError('The event changed since preview. Review the current state before applying.');
-        setAuditState(null);
-        return;
-      }
-      await axios.put('/v2/security/audit/event', { Enabled: true }, { params: auditParams });
-      const verified = resultOf<Record<string, unknown>>((await axios.get('/v2/security/audit/event', { params: auditParams })).data);
-      if (verified?.Enabled !== true) throw new Error('IRIS did not confirm that the login event is enabled.');
-      if (report) {
-        saveDoctorSnapshot('Before login audit fix', report.overall, false);
-        pendingAuditComparison.current = true;
-      }
-      setPreviousScore(report?.overall ?? null);
-      setAuditState({ ...auditState, eventEnabled: true });
-      setAuditResult('IRIS confirmed login auditing is enabled. Run diagnostics again to verify the finding and assessment score.');
-    } catch (e) {
-      setAuditError(`Could not verify the change: ${errText(e)}`);
-    } finally {
-      setAuditBusy(false);
-    }
-  };
+    setPreviousScore(report?.overall ?? null);
+    setHistoryKey((k) => k + 1);
+  }, [report]);
 
   const counts = report?.summary;
   const severityOrder: Finding['severity'][] = ['critical', 'warning', 'info', 'recommendation'];
@@ -289,37 +277,25 @@ export function DoctorPage() {
               </ul>
             </Card>
           )}
+          <RemediationHistory refreshKey={historyKey} />
         </>
       )}
 
-      <Drawer open={!!selected} onClose={() => { setSelected(null); setAuditState(null); setAuditError(''); setAuditResult(''); }} title={selected?.title ?? ''}>
+      <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? ''}>
         {selected && <div className="space-y-5">
           <EvidenceView finding={selected} />
-          {selected.ruleId === 'audit-login-off' && (
-            <div className="space-y-3 rounded-md border border-ink-700 p-3 text-xs">
-              <h3 className="text-sm font-semibold">Resolve login auditing finding</h3>
-              <p className="text-ink-400">Preview the live configuration before making this change. The action enables only the %System/%Login/Login event.</p>
-              {!auditState && <Button size="sm" variant="outline" loading={auditBusy} onClick={inspectAudit}>Preview change</Button>}
-              {auditState && (
-                <>
-                  <div className="space-y-1 font-mono text-ink-300">
-                    <div>Audit master switch: {auditState.masterEnabled ? 'enabled' : 'disabled'}</div>
-                    <div>Login event: {auditState.eventEnabled ? 'enabled' : 'disabled'} → enabled</div>
-                  </div>
-                  {!auditState.masterEnabled && <p className="text-amber-400">The master audit switch is disabled. Enable it on the Audit page before changing this event.</p>}
-                  {auditState.eventEnabled && <p className="text-emerald-400">The event is already enabled. Run diagnostics again to refresh this finding.</p>}
-                  {!auditState.eventEnabled && auditState.masterEnabled && <Button size="sm" loading={auditBusy} onClick={enableLoginAudit}>Confirm and enable login auditing</Button>}
-                </>
-              )}
-              {auditError && <p role="alert" className="text-red-400">{auditError}</p>}
-              {auditResult && (
-                <div className="space-y-2">
-                  <p role="status" className="text-emerald-400">{auditResult}</p>
-                  <Button size="sm" variant="outline" onClick={() => { setSelected(null); void diagnose(); }}>Run diagnostics and compare</Button>
-                </div>
-              )}
-            </div>
-          )}
+          {(() => {
+            const remediation = remediationFor(selected.ruleId);
+            return remediation && (
+              <RemediationPanel
+                key={selected.id}
+                remediation={remediation}
+                finding={selected}
+                onApplied={() => onApplied(remediation, selected)}
+                onRerun={() => { setSelected(null); setHistoryKey((k) => k + 1); void diagnose(); }}
+              />
+            );
+          })()}
         </div>}
       </Drawer>
     </div>
