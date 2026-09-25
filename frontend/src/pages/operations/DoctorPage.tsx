@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, CircleDashed, Download, History, Loader2, Search, Stethoscope } from 'lucide-react';
 import { errText } from '../../components/toast';
@@ -8,7 +9,7 @@ import { Drawer } from '../../components/DetailDrawer';
 import { EvidenceView, FindingCard } from '../../components/FindingCard';
 import { RemediationPanel } from '../../components/RemediationPanel';
 import { runDiagnostics } from '../../health/engine';
-import { remediationFor, type Remediation } from '../../health/remediation';
+import { remediationFor, type AuditEntry, type Remediation } from '../../health/remediation';
 import { remediationHistory, type RemediationRecord } from '../../health/remediationAudit';
 import type { Finding, HealthReport } from '../../health/types';
 import { cn, fmtDate } from '../../lib/utils';
@@ -46,22 +47,39 @@ function exportReport(r: HealthReport) {
   URL.revokeObjectURL(a.href);
 }
 
-function RemediationHistory({ refreshKey }: { refreshKey: number }) {
-  const [records, setRecords] = useState<RemediationRecord[] | null>(null);
-  const [error, setError] = useState('');
-  useEffect(() => {
-    // IRIS exposes new audit rows to SQL shortly after they are written; wait before refreshing.
-    const timer = setTimeout(() => remediationHistory().then(setRecords, (e) => setError(errText(e))), refreshKey ? 2000 : 0);
-    return () => clearTimeout(timer);
-  }, [refreshKey]);
-  if (error) return <p className="text-xs text-ink-500">Change history unavailable: {error}</p>;
-  if (!records?.length) return null;
+/** An audit record this page just wrote; IRIS can take up to about a minute to expose it to SQL. */
+type PendingRecord = { entry: AuditEntry; at: number };
+
+const matches = (r: RemediationRecord, p: PendingRecord) =>
+  r.action === p.entry.action && r.data?.ruleId === p.entry.ruleId && r.data?.target === p.entry.target &&
+  Date.parse(r.timestamp) >= p.at - 60_000;
+
+function RemediationHistory({ pending }: { pending: PendingRecord[] }) {
+  const q = useQuery({
+    queryKey: ['remediation-history'],
+    queryFn: remediationHistory,
+    // Poll while a record this page wrote has not appeared yet.
+    refetchInterval: (query) => (pending.some((p) => !(query.state.data ?? []).some((r) => matches(r, p))) ? 10_000 : false),
+  });
+  const records = q.data ?? [];
+  const unconfirmed = pending.filter((p) => !records.some((r) => matches(r, p)));
+  if (q.error) return <p className="text-xs text-ink-500">Change history unavailable: {errText(q.error)}</p>;
+  if (!records.length && !unconfirmed.length) return null;
   return (
     <Card className="p-4">
       <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
         <History className="h-3.5 w-3.5" /> Change history · IRIS audit log
       </h4>
       <ul className="space-y-1.5 text-xs">
+        {unconfirmed.map((p) => (
+          <li key={`pending-${p.at}`} className="flex flex-wrap items-baseline gap-x-2 text-ink-300">
+            <span className="font-mono text-ink-500">{fmtDate(new Date(p.at).toISOString())}</span>
+            <Badge tone={p.entry.action === 'Rollback' ? 'amber' : 'green'}>{p.entry.action}</Badge>
+            <span>{p.entry.target}</span>
+            <span className="text-ink-500">{p.entry.changes.map((c) => `${c.field}: ${c.before} → ${c.after}`).join(' · ')}</span>
+            <span className="ml-auto text-ink-500" title="IRIS accepted the audit record; it appears in audit queries within about a minute">recorded · appearing shortly</span>
+          </li>
+        ))}
         {records.slice(0, 10).map((r) => (
           <li key={r.timestamp + r.action + r.description} className="flex flex-wrap items-baseline gap-x-2 text-ink-300">
             <span className="font-mono text-ink-500">{fmtDate(r.timestamp)}</span>
@@ -81,7 +99,7 @@ export function DoctorPage() {
   const [steps, setSteps] = useState<{ name: string; done: boolean }[]>([]);
   const [report, setReport] = useState<HealthReport | null>(null);
   const [selected, setSelected] = useState<Finding | null>(null);
-  const [historyKey, setHistoryKey] = useState(0);
+  const [pendingRecords, setPendingRecords] = useState<PendingRecord[]>([]);
   const [previousScore, setPreviousScore] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState<Finding['severity'] | 'all'>('all');
@@ -107,7 +125,8 @@ export function DoctorPage() {
       if (pending &&
         !r.collectorErrors.some((error) => error.collector === pending.remediation.source) &&
         !r.findings.some((finding) => finding.ruleId === pending.finding.ruleId && finding.title === pending.finding.title)) {
-        saveDoctorSnapshot(`After fix: ${pending.remediation.title}`, r.overall, true);
+        // Best effort: a failed snapshot must not hide the diagnosis result.
+        saveDoctorSnapshot(pending.remediation.title, 'after', r.overall).catch(() => {});
         pendingComparison.current = null;
       }
       setSteps((s) => s.map((x) => ({ ...x, done: true })));
@@ -118,12 +137,15 @@ export function DoctorPage() {
 
   const onApplied = useCallback((remediation: Remediation, finding: Finding) => {
     if (report) {
-      saveDoctorSnapshot(`Before fix: ${remediation.title}`, report.overall, false);
+      saveDoctorSnapshot(remediation.title, 'before', report.overall).catch(() => {});
       pendingComparison.current = { remediation, finding };
     }
     setPreviousScore(report?.overall ?? null);
-    setHistoryKey((k) => k + 1);
   }, [report]);
+
+  const onRecorded = useCallback((entry: AuditEntry) => {
+    setPendingRecords((p) => [...p, { entry, at: Date.now() }]);
+  }, []);
 
   const counts = report?.summary;
   const severityOrder: Finding['severity'][] = ['critical', 'warning', 'info', 'recommendation'];
@@ -277,7 +299,7 @@ export function DoctorPage() {
               </ul>
             </Card>
           )}
-          <RemediationHistory refreshKey={historyKey} />
+          <RemediationHistory pending={pendingRecords} />
         </>
       )}
 
@@ -292,7 +314,8 @@ export function DoctorPage() {
                 remediation={remediation}
                 finding={selected}
                 onApplied={() => onApplied(remediation, selected)}
-                onRerun={() => { setSelected(null); setHistoryKey((k) => k + 1); void diagnose(); }}
+                onRecorded={onRecorded}
+                onRerun={() => { setSelected(null); void diagnose(); }}
               />
             );
           })()}

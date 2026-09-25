@@ -4,7 +4,7 @@ import { axios } from '../api/axios-instance';
 import type { Finding } from '../health/types';
 import {
   applyRemediation, auditEntry, rollbackRemediation, RemediationError,
-  type Plan, type Remediation, type RemediationApi,
+  type AuditEntry, type Plan, type Remediation, type RemediationApi,
 } from '../health/remediation';
 import { recordRemediation } from '../health/remediationAudit';
 import { errText } from './toast';
@@ -33,15 +33,23 @@ function AuditNote({ audit, action }: { audit: Audit; action: 'Apply' | 'Rollbac
     : <p className="text-amber-400">The change was made but not recorded in the IRIS audit log: {audit.detail}</p>;
 }
 
-export function RemediationPanel({ remediation: r, finding, onApplied, onRerun }: {
+export function RemediationPanel({ remediation: r, finding, onApplied, onRecorded, onRerun }: {
   remediation: Remediation;
   finding: Finding;
   onApplied?: (before: Plan, after: Plan) => void;
+  /** Called with each audit record IRIS accepted. */
+  onRecorded?: (entry: AuditEntry) => void;
   onRerun: () => void;
 }) {
   const [stage, setStage] = useState<Stage>({ kind: 'idle' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  const record = async (entry: AuditEntry) => {
+    const audit = await recordRemediation(entry);
+    if (audit.recorded) onRecorded?.(entry);
+    return audit;
+  };
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -60,7 +68,7 @@ export function RemediationPanel({ remediation: r, finding, onApplied, onRerun }
   const apply = (previewed: Plan) => run(async () => {
     try {
       const { before, after } = await applyRemediation(api, r, finding, previewed);
-      const audit = await recordRemediation(auditEntry('Apply', r, before, 'verified'));
+      const audit = await record(auditEntry('Apply', r, before, 'verified'));
       setStage({ kind: 'applied', before, after, audit });
       onApplied?.(before, after);
     } catch (e) {
@@ -73,7 +81,7 @@ export function RemediationPanel({ remediation: r, finding, onApplied, onRerun }
   const undo = (before: Plan, after: Plan) => run(async () => {
     try {
       await rollbackRemediation(api, r, finding, before, after);
-      setStage({ kind: 'rolledBack', audit: await recordRemediation(auditEntry('Rollback', r, before, 'verified')) });
+      setStage({ kind: 'rolledBack', audit: await record(auditEntry('Rollback', r, before, 'verified')) });
     } catch (e) {
       if (!noWrite(e)) await recordRemediation(auditEntry('Rollback', r, before, 'failed', errText(e)));
       setError(e instanceof RemediationError ? e.message : `Rollback could not be verified: ${errText(e)}`);

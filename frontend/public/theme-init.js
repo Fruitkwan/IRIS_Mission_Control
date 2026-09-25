@@ -7,4 +7,4 @@ try {
   }
   document.documentElement.dataset.theme = t;
   document.documentElement.style.colorScheme = t;
-} catch (e) {}
+} catch {}

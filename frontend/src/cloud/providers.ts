@@ -1,6 +1,6 @@
 import { axios } from '../api/axios-instance';
 import { resultOf } from '../api/helpers';
-import { tokenStore } from '../auth/token';
+import { brokerFetch, BrokerError } from '../api/broker';
 
 export interface CloudConnection {
   id: string;
@@ -95,34 +95,13 @@ export async function testConnection(c: CloudConnection): Promise<TestResult> {
   if (missing.length) {
     return { status: 'not-configured', detail: `Missing configuration: ${missing.join(', ')}` };
   }
-  if (!tokenStore.brokerAccessToken) {
-    return { status: 'disconnected', detail: 'Broker session unavailable. Sign out and sign in again, then retry.' };
-  }
   try {
-    const response = await fetch('/irisops-broker/api/cloud/test', {
+    return await brokerFetch<TestResult>('/api/cloud/test', {
       method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${tokenStore.brokerAccessToken}`,
-      },
       body: JSON.stringify({ provider: c.provider, config: c.config }),
     });
-    const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.includes('application/json')) {
-      return {
-        status: 'disconnected',
-        detail: response.status === 401 || response.status === 403
-          ? 'Broker session expired or access denied. Sign out and sign in again, then retry.'
-          : `Broker returned HTTP ${response.status} with ${contentType || 'an empty content type'}. Check the broker dispatch class and server logs.`,
-      };
-    }
-    const result = (await response.json()) as TestResult;
-    if (!response.ok) {
-      return { status: 'disconnected', detail: result.detail || `Broker returned HTTP ${response.status}` };
-    }
-    return result;
   } catch (e) {
+    if (e instanceof BrokerError) return { status: 'disconnected', detail: e.message };
     return {
       status: 'disconnected',
       detail: `Server-side broker unreachable: ${e instanceof Error ? e.message : String(e)}`,

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useSyncExternalStore } from 'react';
 import { tokenStore } from './token';
 import { axios } from '../api/axios-instance';
+import { endBrokerSession, startBrokerSession } from '../api/broker';
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -22,26 +23,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = data?.result ?? data;
     if (!result?.access_token) throw new Error('No access token in response');
     tokenStore.set(result.access_token, result.refresh_token ?? '', result.sub ?? user);
-    // IRIS JWTs are scoped to their CSP application. Obtain a separate token
-    // for the broker without persisting the password or blocking normal login.
-    tokenStore.clearBroker();
-    try {
-      const response = await fetch('/irisops-broker/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user, password }),
-      });
-      if (response.ok) {
-        const payload = await response.json();
-        const broker = payload?.result ?? payload;
-        if (broker?.access_token) tokenStore.setBroker(broker.access_token);
-      }
-    } catch { /* the main portal remains usable if the broker is unavailable */ }
+    // The broker keeps its own CSP session in an HttpOnly cookie; the password
+    // is used once here and not stored. The portal stays usable without it.
+    try { await startBrokerSession(user, password); } catch { /* broker features report the missing session */ }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await axios.post('/logout');
+      await Promise.all([axios.post('/logout'), endBrokerSession()]);
     } finally {
       tokenStore.clear();
     }

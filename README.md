@@ -124,8 +124,8 @@ flowchart LR
   subgraph IRIS["InterSystems IRIS 2026.2"]
     SPA["/irisops<br/>IrisOps.Router (static shell)"]
     API["/api/admin<br/>SysAdmin REST APIs (JWT)"]
-    BRK["/irisops-broker (JWT)<br/>IrisOps.Broker.Router"]
-    AUD[("IRIS audit log<br/>IrisOps/Remediation/*")]
+    BRK["/irisops-broker (HttpOnly session)<br/>IrisOps.Broker.Router"]
+    AUD[("IRIS audit log + IrisOps.Snapshot<br/>fixes, snapshots, history")]
   end
   subgraph MCP["MCP server (Node)"]
     TOOLS["16 read-only tools"]
@@ -135,7 +135,7 @@ flowchart LR
 
   UI --> SPA
   UI -- telemetry, fixes --> API
-  UI -- audit + history --> BRK --> AUD
+  UI -- audit, history, snapshots --> BRK --> AUD
   UI -.uses.-> Engine
   TOOLS -.uses.-> Engine
   Agent -- Streamable HTTP --> TOOLS -- Basic auth --> API
@@ -146,8 +146,10 @@ flowchart LR
   scoring. `remediation.ts` holds the fixes.
 - `src/cls/IrisOps/`: IRIS classes.
   - `Router` serves the SPA.
-  - `Broker.Router` is the JWT-protected broker.
-  - `Remediation` writes and reads the audit records.
+  - `Broker.Router` is the authenticated broker (HttpOnly session cookie).
+  - `Remediation` writes and reads the audit records; `Audit` is the shared writer.
+  - `Snapshot` stores Time Machine and Config Drift snapshots.
+  - `Setup` runs at install: creates the audit events and configures the broker session.
   - `CloudBroker` runs server-side cloud checks.
 - `mcp-server/`: the standalone MCP service.
 - `frontend/src/api/generated/`: a typed client generated from the OpenAPI spec.
@@ -264,8 +266,12 @@ This registers two web applications:
 - `/irisops` serves the portal shell through `IrisOps.Router`. The shell loads
   without authentication so the login page can appear. Every API call is
   authenticated by `/api/admin`.
-- `/irisops-broker` is JWT-authenticated. It serves the remediation audit and
-  history endpoints and the server-side cloud connection tests.
+- `/irisops-broker` requires IRIS authentication and the `%Admin_Secure`
+  privilege. It serves the remediation audit and history, the Time Machine and
+  Config Drift snapshots, and the server-side cloud connection tests.
+
+The install step `IrisOps.Setup` creates the `IrisOps/*` audit events and
+configures the broker's session cookie.
 
 ### MCP client setup
 
@@ -300,6 +306,7 @@ cd mcp-server && npm ci && IRIS_URL=http://localhost:52773/api/admin npm start
   including partial collector failures.
 - Every fix is tested against an in-memory IRIS for preview, drift refusal,
   apply and verify, and exact rollback.
+- Config drift and the Time Machine before/after preselection are tested.
 
 **CI** (`.github/workflows/ci.yml`):
 - runs lint, the tests and the production build
@@ -309,13 +316,35 @@ cd mcp-server && npm ci && IRIS_URL=http://localhost:52773/api/admin npm start
 
 ## Security model
 
-- **API authentication:** all SysAdmin calls use JWT login with transparent
-  refresh.
-  - The portal's access and refresh tokens are stored in `localStorage`.
-  - The broker token is stored in `sessionStorage`.
-  - This makes cross-site scripting the main threat. The app code never
-    injects raw HTML (no `dangerouslySetInnerHTML` or `innerHTML`).
-  - Moving to HttpOnly cookies is planned.
+- **Content-Security-Policy:** the portal only runs scripts from its own
+  origin, so injected inline scripts and event handlers are blocked. Scripts
+  can only connect to the portal itself and the MCP server, which stops
+  exfiltration to any other address.
+  - The policy is sent as headers by `IrisOps.Router` and embedded in
+    `index.html`.
+  - It also sends `frame-ancestors 'none'`, `nosniff` and a same-origin
+    referrer policy.
+  - To allow extra origins, such as an external FHIR server, set
+    `^IrisOps("security","connect-src")`.
+- **Portal API tokens:** `/api/admin` issues JWTs, which the SPA keeps in
+  `localStorage` with transparent refresh.
+  - Cross-site scripting is the threat this guards against. The CSP above
+    blocks injected scripts, and the app code never injects raw HTML.
+  - A future step is a backend-for-frontend that keeps these tokens server-side.
+- **Broker session:** the broker holds no browser-readable token. The user
+  authenticates once at login, and the session lives in an HttpOnly,
+  SameSite=Strict cookie.
+  - State-changing requests must carry an `X-Requested-With` header, which
+    cross-site pages cannot send (CSRF protection).
+  - Remediation, history and snapshot routes also require `%Admin_Secure`.
+  - Unlike broker JWTs, the session is not invalidated when a fix changes IRIS
+    security settings.
+- **Shared, durable state:** snapshots and remediation history live in IRIS,
+  not the browser.
+  - Snapshots record who captured them. The newest 200 metric snapshots and
+    50 config snapshots are kept.
+  - Creating or deleting a snapshot writes an `IrisOps/Snapshot/*` audit
+    record.
 - **No arbitrary execution:** no endpoint runs arbitrary SQL, ObjectScript or
   shell commands.
 - **Remediation:**

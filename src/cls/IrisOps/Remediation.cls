@@ -37,9 +37,8 @@ ClassMethod Record(request As %CSP.Request, response As %CSP.Response) As %Statu
         }
         if input.%Get("detail")'="" do data.%Set("detail", $extract(input.%Get("detail"), 1, 256))
 
-        do ..EnsureEvent(action)
         set description = "IRIS Doctor "_$zconvert(action,"l")_" "_ruleId_" on "_target_" ("_outcome_")"
-        set written = $system.Security.Audit(..#EventSource, ..#EventType, action, data.%ToJSON(), $extract(description, 1, 128))
+        set written = ##class(IrisOps.Audit).Write(..#EventType, action, data, description)
         if 'written throw ##class(%Exception.General).%New("audit-not-written")
         set response.Status = "200 OK"
         write {"recorded":true, "event":(..#EventSource_"/"_..#EventType_"/"_action)}.%ToJSON()
@@ -65,7 +64,8 @@ ClassMethod History(request As %CSP.Request, response As %CSP.Response) As %Stat
         set rs = ##class(%SQL.Statement).%ExecDirect(, sql, ..#EventSource, ..#EventType)
         if rs.%SQLCODE<0 throw ##class(%Exception.SQL).CreateFromSQLCODE(rs.%SQLCODE, rs.%Message)
         while rs.%Next() {
-            set entry = {"timestamp":(rs.UTCTimeStamp), "username":(rs.Username), "action":(rs.Event), "description":(rs.Description)}
+            // UTC as ISO 8601 so browsers do not read it as local time.
+            set entry = {"timestamp":($translate(rs.UTCTimeStamp, " ", "T")_"Z"), "username":(rs.Username), "action":(rs.Event), "description":(rs.Description)}
             try { do entry.%Set("data", {}.%FromJSON(rs.EventData)) } catch { }
             do rows.%Push(entry)
         }
@@ -76,17 +76,6 @@ ClassMethod History(request As %CSP.Request, response As %CSP.Response) As %Stat
         write {"records":[], "detail":(..ErrorCode(ex))}.%ToJSON()
     }
     quit $$$OK
-}
-
-/// Creates and enables the user-defined audit event on first use.
-ClassMethod EnsureEvent(action As %String)
-{
-    new $namespace
-    set $namespace = "%SYS"
-    if '##class(Security.Events).Exists(..#EventSource, ..#EventType, action) {
-        set sc = ##class(Security.Events).Create(..#EventSource, ..#EventType, action, "IRIS Mission Control remediation "_$zconvert(action,"l"), 1)
-        if $$$ISERR(sc) throw ##class(%Exception.StatusException).CreateFromStatus(sc)
-    }
 }
 
 ClassMethod ErrorCode(ex As %Exception.AbstractException) As %String
