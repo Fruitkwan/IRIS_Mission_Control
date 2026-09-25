@@ -72,7 +72,7 @@ higher-level question: *is my IRIS environment healthy, and what needs attention
 ## Quick start (Docker)
 
 ```bash
-git clone <repo-url> irisops
+git clone https://github.com/Fruitkwan/IRIS_Mission_Control.git irisops
 cd irisops
 docker compose up -d --build
 ```
@@ -139,6 +139,19 @@ cd mcp-server && npm install && IRIS_URL=http://localhost:52773/api/admin npm st
 | `npm run generate` | Inject `operationId`s into the spec + regenerate the typed client (orval) |
 | `npm run build` | Typecheck + production build into `web/` |
 | `npm run lint` | oxlint |
+| `npm test` | Rule engine, scoring and collector tests (frontend); secret-redaction tests (mcp-server) |
+
+### Testing
+
+`frontend/tests/health-rules.test.mjs` covers every IRIS Doctor rule. A
+meta-test fails if a rule is added to `rules.ts` without a test case. Each rule
+is tested for its trigger, severity, category, evidence and deep link. The
+suite also covers thresholds, scoring and the rule that repeated resources
+don't stack penalties. `frontend/tests/collectors.test.mjs` runs sample
+SysAdmin API responses through the same collector the portal and MCP use,
+including partial collector failures. CI (`.github/workflows/ci.yml`) runs
+lint, tests and the production build. It also boots the MCP server, then
+brings up the full Docker stack and waits for the IRIS healthcheck.
 
 ## Architecture
 
