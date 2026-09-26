@@ -78,7 +78,7 @@ export function evaluate(t: Telemetry): Finding[] {
   if (serious > 0) {
     findings.push(f('serious-alerts', 'availability', 'critical', `${serious} serious system alert${serious > 1 ? 's' : ''}`, 'The system monitor reports serious alerts requiring attention.', [
       { label: 'Serious alerts', value: String(serious) }, { label: 'Application errors', value: str(alerts.ApplicationErrors) },
-    ], 'Review messages.log and the alert log.', '/logs'));
+    ], 'Review messages.log and the alert log.', '/messages-log'));
   }
   const appErrors = Number(alerts.ApplicationErrors ?? 0);
   if (appErrors > 0) {

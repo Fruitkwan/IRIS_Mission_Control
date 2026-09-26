@@ -18,6 +18,7 @@ const LocksPage = page(() => import('./pages/system/DevicesLocksSessions'), 'Loc
 const SessionsPage = page(() => import('./pages/system/DevicesLocksSessions'), 'SessionsPage');
 const LicensePage = page(() => import('./pages/system/LicensePage'), 'LicensePage');
 const JournalPage = page(() => import('./pages/system/JournalPage'), 'JournalPage');
+const MessagesLogPage = page(() => import('./pages/system/MessagesLogPage'), 'MessagesLogPage');
 const EcpPage = page(() => import('./pages/system/MiscPages'), 'EcpPage');
 const ExtLangPage = page(() => import('./pages/system/MiscPages'), 'ExtLangPage');
 const WqmPage = page(() => import('./pages/system/MiscPages'), 'WqmPage');
@@ -72,6 +73,7 @@ const PALETTE_ROUTES: PaletteItem[] = [
   { label: 'Web Sessions', to: '/sessions' },
   { label: 'License', to: '/license' },
   { label: 'Journal', to: '/journal' },
+  { label: 'Messages log', to: '/messages-log', hint: 'messages.log and older files' },
   { label: 'ECP', to: '/ecp' },
   { label: 'External Language Servers', to: '/ext-lang' },
   { label: 'Work Queue Manager', to: '/wqm' },
@@ -156,6 +158,7 @@ export default function App() {
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="license" element={<LicensePage />} />
           <Route path="journal" element={<JournalPage />} />
+          <Route path="messages-log" element={<MessagesLogPage />} />
           <Route path="ecp" element={<EcpPage />} />
           <Route path="ext-lang" element={<ExtLangPage />} />
           <Route path="wqm" element={<WqmPage />} />

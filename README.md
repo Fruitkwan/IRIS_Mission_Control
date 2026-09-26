@@ -103,6 +103,24 @@ docker compose up -d --build        # wait until `docker ps` shows irisops (heal
 IRIS Mission Control is built only on `/api/admin`. Anything that API does not
 expose still needs the classic portal.
 
+## Community Idea implemented
+
+[**DPI-I-966 — Option to show older message.log in IRIS SMP**](https://ideas.intersystems.com/ideas/DPI-I-966)
+(status: Community Opportunity).
+
+The classic portal only shows the current `messages.log`. After a log switch,
+for example one forced by mirror trouble, you have to log in to the server to
+read `messages.old_*`. IRIS Mission Control's **Messages Log** page (sidebar →
+System) handles this from the portal:
+- lists `messages.log` and every rotated `messages.old_*` file
+- shows the last 200–5000 lines of any of them, newest first
+- filters by severity and searches by text or source
+
+The "serious system alert" finding in IRIS Doctor links straight to it. It is
+read-only, served by `IrisOps.MessagesLog` on the broker, and requires
+`%Admin_Operate` or `%Admin_Manage`. It only accepts those log file names, so it
+cannot read any other file.
+
 ## Tested with
 
 | Component | Version |

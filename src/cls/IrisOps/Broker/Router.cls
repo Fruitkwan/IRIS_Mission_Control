@@ -18,6 +18,8 @@ XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
   <Route Url="/api/snapshots" Method="POST" Call="SnapshotCreate" />
   <Route Url="/api/snapshots/:id" Method="GET" Call="SnapshotGet" />
   <Route Url="/api/snapshots/:id" Method="DELETE" Call="SnapshotRemove" />
+  <Route Url="/api/logs/messages" Method="GET" Call="MessagesLogList" />
+  <Route Url="/api/logs/messages/:name" Method="GET" Call="MessagesLogRead" />
 </Routes>
 }
 
@@ -33,6 +35,14 @@ ClassMethod OnPreDispatch(pUrl As %String, pMethod As %String, ByRef pContinue A
         set %response.Status = "403 Forbidden"
         set %response.ContentType = "application/json"
         write {"detail":"missing-request-header"}.%ToJSON()
+        quit $$$OK
+    }
+    // messages.log may reveal system details; same privilege the classic portal requires to operate the system.
+    if (pUrl["/api/logs/") && '$system.Security.Check("%Admin_Operate", "USE") && '$system.Security.Check("%Admin_Manage", "USE") {
+        set pContinue = 0
+        set %response.Status = "403 Forbidden"
+        set %response.ContentType = "application/json"
+        write {"detail":"requires-admin-operate"}.%ToJSON()
         quit $$$OK
     }
     if (pUrl["/api/remediation/") || (pUrl["/api/snapshots") {
@@ -62,6 +72,16 @@ ClassMethod SessionEnd() As %Status
     set %response.ContentType = "application/json"
     write {"ended":true}.%ToJSON()
     quit $$$OK
+}
+
+ClassMethod MessagesLogList() As %Status
+{
+    quit ##class(IrisOps.MessagesLog).List(%request, %response)
+}
+
+ClassMethod MessagesLogRead(name As %String) As %Status
+{
+    quit ##class(IrisOps.MessagesLog).Read(%request, %response, name)
 }
 
 ClassMethod CloudTest() As %Status

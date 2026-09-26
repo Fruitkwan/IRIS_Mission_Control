@@ -39,7 +39,7 @@ const cases = [
   ['usage-databasejournal', (t) => { t.dashboard.SystemUsage.DatabaseJournal = 'Troubled'; }, 'critical', 'journal', '/dashboard'],
   ['usage-locktable', (t) => { t.dashboard.SystemUsage.LockTable = 'Warning'; }, 'warning', 'performance', '/dashboard'],
   ['usage-writedaemon', (t) => { t.dashboard.SystemUsage.WriteDaemon = 'Troubled'; }, 'warning', 'performance', '/dashboard'],
-  ['serious-alerts', (t) => { t.dashboard.Alerts.SeriousAlerts = 2; }, 'critical', 'availability', '/logs'],
+  ['serious-alerts', (t) => { t.dashboard.Alerts.SeriousAlerts = 2; }, 'critical', 'availability', '/messages-log'],
   ['app-errors', (t) => { t.dashboard.Alerts.ApplicationErrors = 3; }, 'warning', 'availability', '/logs'],
   ['no-backup', (t) => { t.dashboard.Status.LastBackup = 'Never'; }, 'recommendation', 'availability', '/tasks'],
   ['proc-long', (t) => { t.processes[0].ElapsedTime = '30:04:33'; }, 'info', 'performance', '/processes'],

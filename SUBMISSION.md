@@ -51,6 +51,13 @@ it without breaking anything?*
   reach the browser.
 - **Unified log console, and universal search** (Ctrl+K) across pages and live entities.
 
+### Community Idea implemented
+
+[DPI-I-966 — Option to show older message.log in IRIS SMP](https://ideas.intersystems.com/ideas/DPI-I-966).
+The **Messages Log** page lists `messages.log` and every rotated `messages.old_*`
+file and shows any of them with severity filtering and search. It is read-only and
+restricted to administrators, and no RDP to the server is needed.
+
 ### Coverage
 
 The full SysAdmin API surface:
@@ -115,5 +122,7 @@ Bonus points noted in brackets.
   the default `_SYSTEM`/`SYS` password on a public server.
 - [ ] Developer Community article [+2], and a second article or translation [+1]
 - [ ] First-time contribution [+3]: applies if this is your first Open Exchange contest
+- [ ] Community Idea [+4]: DPI-I-966 is implemented. Name it in the listing and the
+  article, with the link.
 - [ ] Screenshots: `docs/images/` (regenerate from the new demo recording)
 - [ ] Push to GitHub, and check that the CI badge is green

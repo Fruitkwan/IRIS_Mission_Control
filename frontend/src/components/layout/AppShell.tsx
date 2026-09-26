@@ -82,6 +82,7 @@ const NAV: NavGroup[] = [
       { to: '/sessions', label: 'Web Sessions', icon: Globe, color: '#22d3ee' },
       { to: '/license', label: 'License', icon: KeyRound, color: '#fbbf24' },
       { to: '/journal', label: 'Journal', icon: FileClock, color: '#fb923c' },
+      { to: '/messages-log', label: 'Messages Log', icon: FileText, color: '#f87171' },
       { to: '/ecp', label: 'ECP', icon: Network, color: '#818cf8' },
       { to: '/ext-lang', label: 'Ext. Languages', icon: TerminalSquare, color: '#4ade80' },
       { to: '/wqm', label: 'Queue Manager', icon: Workflow, color: '#2dd4bf' },
