@@ -1,0 +1,45 @@
+1
+00:00:00,000 --> 00:00:20,000
+Every IRIS administrator asks the same question: is my instance healthy, and what needs my attention right now?
+The classic Management Portal gives you forty screens. IRIS Mission Control gives you an answer.
+
+2
+00:00:20,000 --> 00:00:45,000
+The Operations Center scores each subsystem using deterministic rules against live telemetry from the SysAdmin APIs.
+Every score is backed by findings, and every finding by evidence.
+
+3
+00:00:45,000 --> 00:01:10,000
+IRIS Doctor runs a full diagnosis in seconds: databases, journals, locks, security, audit,
+web applications, tasks, certificates and licensing.
+
+4
+00:01:10,000 --> 00:01:40,000
+Here's a real risk. Journal freeze-on-error is disabled, so if IRIS can't write the journal, updates keep going without it.
+That can mean data loss after a crash. The finding shows exactly what IRIS reported, not a guess.
+
+5
+00:01:40,000 --> 00:02:20,000
+Before anything changes, you see the exact field-level change, its scope, its operational impact, and how to roll it back.
+When I confirm, IRIS Mission Control re-reads the live configuration. If someone else changed it since the preview, it refuses.
+Then it applies the change, verifies it with a fresh read, and records it in the IRIS audit log under my username.
+
+6
+00:02:20,000 --> 00:02:50,000
+Diagnosis again: the finding is gone and the score went up. The change history comes from the IRIS audit log itself,
+and Time Machine shows the before and after side by side.
+
+7
+00:02:50,000 --> 00:03:20,000
+The same engine is available to AI agents over MCP. Claude, ChatGPT or your IDE agent gets the same evidence-backed findings,
+and the freeze-on-error finding is gone for them too. Every agent call is audited, with secrets redacted.
+
+8
+00:03:20,000 --> 00:03:45,000
+Five findings have safe fixes like this, and the Doctor links every other finding to the page that fixes it.
+Underneath, it's a complete modern portal on the official SysAdmin APIs, with a command palette, config drift, security, FHIR and cloud secrets.
+
+9
+00:03:45,000 --> 00:04:00,000
+IRIS Mission Control: diagnose, fix safely, and prove it.
+One docker compose up and it's running. Links are below.

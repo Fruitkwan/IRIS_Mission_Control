@@ -9,6 +9,7 @@
     "lint": "oxlint --deny-warnings",
     "test:health": "node --experimental-strip-types --test tests/health-rules.test.mjs",
     "record:demo": "node scripts/record-doctor-demo.mjs",
+    "record:full-demo": "node scripts/record-video-script.mjs",
     "preview": "vite preview",
     "generate": "node ../scripts/add-operation-ids.mjs && orval",
     "prebuild": "npm run generate",

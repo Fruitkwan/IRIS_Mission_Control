@@ -8,3 +8,4 @@ frontend/src/api/generated/
 !.env.example
 demo/*.webm
 demo/*.mp4
+demo/*.wav
