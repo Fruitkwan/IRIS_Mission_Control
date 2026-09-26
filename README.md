@@ -254,9 +254,20 @@ docker compose up -d --build
 > upstream `dbapi` regression). The compose file's `restart: unless-stopped`
 > recovers from it automatically.
 
+> **Upgrading an existing stack:** the `irisops-data` volume holds the IRIS
+> databases, so `--build` alone keeps the previously installed classes. Run
+> `docker compose down -v` first to start from the new image. This deletes
+> local data such as snapshots.
+
 ### Existing instance (ZPM)
 
-Requires IRIS 2026.2+. The prebuilt `web/` bundle is committed.
+Requires IRIS 2026.2+. From the community package registry:
+
+```
+zpm "install iris-mission-control"
+```
+
+Or from a clone of this repository (the prebuilt `web/` bundle is committed):
 
 ```
 zpm "load /path/to/irisops"

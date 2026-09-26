@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Export generator="Cache" version="25">
-  <Document name="irisops.ZPM">
+  <Document name="iris-mission-control.ZPM">
     <Module>
-      <Name>irisops</Name>
-      <Version>0.2.0</Version>
-      <Description>IrisOps / IRIS Mission Control - an intelligent operations, security, FHIR and multi-cloud control plane for InterSystems IRIS built on the /api/admin SysAdmin APIs.</Description>
-      <Keywords>management portal admin monitoring security fhir mcp iris</Keywords>
+      <Name>iris-mission-control</Name>
+      <Version>1.0.0</Version>
+      <Description>IRIS Mission Control - a modern management portal for InterSystems IRIS on the /api/admin SysAdmin APIs, with IRIS Doctor: evidence-backed diagnosis and safe, verified, audited fixes. Also FHIR, cloud secrets, observability and an MCP server.</Description>
+      <Keywords>management portal admin monitoring diagnosis security audit fhir mcp iris</Keywords>
       <Packaging>module</Packaging>
+      <SystemRequirements Version=">=2026.2"/>
       <SourcesRoot>src</SourcesRoot>
       <Resource Name="IrisOps.PKG" Directory="cls"/>
       <CSPApplication CookiePath="/irisops/" DefaultTimeout="900" DeployPath="${cspdir}/irisops" DispatchClass="IrisOps.Router" MatchRoles=":{$globalsDbRole}" PasswordAuthEnabled="1" Recurse="1" RedirectEmptyPath="1" ServeFiles="1" ServeFilesTimeout="3600" SourcePath="/web" UnauthenticatedEnabled="1" Url="/irisops" UseSessionCookie="2"/>
