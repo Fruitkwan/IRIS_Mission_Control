@@ -1,0 +1,1 @@
+import{t as e}from"./engine-BQUJpHVp.js";import{k as t}from"./index-Du8rsYo9.js";function n(n=!0){return t({queryKey:[`health-report`],queryFn:()=>e(),staleTime:3e4,refetchInterval:6e4,enabled:n})}export{n as t};

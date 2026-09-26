@@ -162,7 +162,8 @@ test('web app fix clears only the Unauthenticated flag and never locks out the p
   await applyRemediation(api, r, custom, await r.plan(api, custom));
   assert.deepEqual(api.writes, [['PUT', '/v2/web-app', { AutheEnabled: 32 }, { name: '/custom' }]], 'only AutheEnabled is sent');
 
-  const shell = findings['webapp-unauth']('/irisops');
+  // The rules engine no longer reports the shell; the fix still refuses it if asked directly.
+  const shell = { ...custom, evidence: custom.evidence.map((e) => (e.label === 'Application' ? { ...e, value: '/irisops' } : e)) };
   const preview = await r.plan(api, shell);
   assert.match(preview.blocked, /portal shell/);
   await assert.rejects(applyRemediation(api, r, shell, preview), { code: 'blocked' });

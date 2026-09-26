@@ -176,6 +176,13 @@ test('bundled web apps are reviewed together while custom apps remain individual
   assert.match(findings.find((finding) => finding.ruleId === 'webapp-unauth').description, /may still enforce authorization/);
 });
 
+test("the portal's own shell is not reported as an unauthenticated web application", () => {
+  const shell = { Name: '/irisops', Enabled: true, AuthenticationMethods: ['Unauthenticated'] };
+  assert.deepEqual(ids({ webApps: [shell] }), []);
+  assert.deepEqual(ids({ webApps: [{ ...shell, Name: '/portal', DispatchClass: 'IrisOps.Router' }] }), [], 'recognized by dispatch class too');
+  assert.deepEqual(ids({ webApps: [{ ...shell, Name: '/irisops-other' }] }), ['webapp-unauth'], 'similar names are still checked');
+});
+
 test('finding ids are unique within a run and restart on each evaluation', () => {
   const t = withChange((x) => { x.users[1].Enabled = true; x.users[2].Enabled = true; });
   const first = evaluate(t).map((f) => f.id);

@@ -22,6 +22,9 @@ function f(
 const SYSTEM_RO_DBS = new Set(['IRISLIB', 'IRISAUDIT']);
 const RISKY_SERVICES = new Set(['%Service_Telnet', '%Service_Terminal', '%Service_FTP', '%Service_WebLink', '%Service_Bindings', '%Service_ComPort']);
 const DEFAULT_ACCOUNTS = new Set(['_SYSTEM', 'Admin', 'SuperUser', 'CSPSystem', 'UnknownUser']);
+// IRIS Mission Control's own portal shell: it serves only static files, the login page and
+// /health without authentication; every API call behind it is authenticated by /api/admin.
+const isPortalShell = (app: Row) => str(app.Name) === '/irisops' || str(app.DispatchClass) === 'IrisOps.Router';
 const isBundledWebApp = (name: string) => /^\/(?:api|csp|isc)\/|^\/ui\/interop(?:\/|$)/.test(name);
 
 export function evaluate(t: Telemetry): Finding[] {
@@ -189,6 +192,7 @@ export function evaluate(t: Telemetry): Finding[] {
   // ---- Web apps ----
   const bundledUnauthenticated: string[] = [];
   for (const app of t.webApps ?? []) {
+    if (isPortalShell(app)) continue;
     const methods = (app.AuthenticationMethods as string[]) ?? [];
     if (app.Enabled === true && (methods.includes('Unauthenticated') || methods.length === 0)) {
       const name = str(app.Name);

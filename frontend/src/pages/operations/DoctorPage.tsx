@@ -6,10 +6,10 @@ import { errText } from '../../lib/errors';
 import { PageHeader } from '../../components/PageHeader';
 import { Badge, Button, Card, Input } from '../../components/ui';
 import { Drawer } from '../../components/DetailDrawer';
-import { EvidenceView, FindingCard } from '../../components/FindingCard';
-import { RemediationPanel } from '../../components/RemediationPanel';
+import { FindingCard } from '../../components/FindingCard';
+import { FindingDetail } from '../../components/FindingDetail';
 import { runDiagnostics } from '../../health/engine';
-import { remediationFor, type AuditEntry, type Remediation } from '../../health/remediation';
+import type { AuditEntry, Remediation } from '../../health/remediation';
 import { remediationHistory, type RemediationRecord } from '../../health/remediationAudit';
 import type { Finding, HealthReport } from '../../health/types';
 import { cn, fmtDate } from '../../lib/utils';
@@ -304,22 +304,14 @@ export function DoctorPage() {
       )}
 
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? ''}>
-        {selected && <div className="space-y-5">
-          <EvidenceView finding={selected} />
-          {(() => {
-            const remediation = remediationFor(selected.ruleId);
-            return remediation && (
-              <RemediationPanel
-                key={selected.id}
-                remediation={remediation}
-                finding={selected}
-                onApplied={() => onApplied(remediation, selected)}
-                onRecorded={onRecorded}
-                onRerun={() => { setSelected(null); void diagnose(); }}
-              />
-            );
-          })()}
-        </div>}
+        {selected && (
+          <FindingDetail
+            finding={selected}
+            onApplied={(remediation) => onApplied(remediation, selected)}
+            onRecorded={onRecorded}
+            onRerun={() => { setSelected(null); void diagnose(); }}
+          />
+        )}
       </Drawer>
     </div>
   );
