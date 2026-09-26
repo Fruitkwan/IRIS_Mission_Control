@@ -13,7 +13,7 @@ full API surface, but this article is about the part I care most about:
 
 - GitHub: https://github.com/Fruitkwan/IRIS_Mission_Control
 - Open Exchange: *(link)*
-- Video: *(link)*
+- Video (4 min): https://youtu.be/S-pdnruZOUE
 
 ## One-click diagnosis, with evidence
 

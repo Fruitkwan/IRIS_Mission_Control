@@ -6,10 +6,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![IRIS 2026.2](https://img.shields.io/badge/IRIS-2026.2-2f6fad)
 
+**[▶ Watch the 4-minute demo video](https://youtu.be/S-pdnruZOUE)**
+
 <!--
-  Add these links once they exist, and move this row up under the badges:
-  **[▶ Watch the 3-minute video](YOUTUBE_URL)** · **[Try the live demo](DEMO_URL)** ·
-  [Developer Community article](ARTICLE_URL) · [Open Exchange](OPEX_URL)
+  Add these links once they exist:
+  · **[Try the live demo](DEMO_URL)** · [Developer Community article](ARTICLE_URL) · [Open Exchange](OPEX_URL)
 -->
 
 ![IRIS Doctor: diagnose, review the exact change, confirm, verify](docs/images/doctor-demo.gif)

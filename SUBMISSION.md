@@ -106,18 +106,19 @@ Tested on InterSystems IRIS Community Edition 2026.2 (Build 221U). MIT licensed.
 | License | MIT |
 | Version | 1.0.0 (matches `module.xml`) |
 | Package Manager | Enable the option to publish the app to the Package Manager (IPM/ZPM) registry. The package name is `iris-mission-control`. |
+| Video | https://youtu.be/S-pdnruZOUE |
 | Install type | Docker (`docker compose up -d --build`) and ZPM package |
 
 ## Checklist before submitting
 
 Bonus points noted in brackets.
 
-- [ ] Docker [+2]: done
+- [x] Docker [+2]
 - [ ] ZPM package [+2]: publish to the Package Manager registry through Open Exchange.
   Afterwards, check that `zpm "install iris-mission-control"` works on a clean
   IRIS 2026.2.
-- [ ] YouTube video [+3]: script in `demo/VIDEO_SCRIPT.md`. Add the link to the listing
-  and the README.
+- [x] YouTube video [+3]: https://youtu.be/S-pdnruZOUE (already in the README and
+  article). Add it to the Open Exchange listing too.
 - [ ] Online demo [+2]: add the public URL to the listing and the README. Don't leave
   the default `_SYSTEM`/`SYS` password on a public server.
 - [ ] Developer Community article [+2], and a second article or translation [+1]
