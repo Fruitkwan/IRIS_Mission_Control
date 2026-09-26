@@ -91,13 +91,41 @@ Put `<URL>/irisops/` and the demo credentials (`demo` / your demo password) in:
 - the Open Exchange **Demo URL** field
 - the article
 
+## Permanent URL on your own domain (recommended)
+
+A quick tunnel's URL changes whenever the tunnel restarts. A named tunnel keeps a
+fixed address such as `https://demo.yourdomain.com`. It needs a domain in your
+Cloudflare account; you can buy one under **Domain Registration** in the Cloudflare
+dashboard. Dashboard labels may differ slightly.
+
+1. **Create the tunnel:** Cloudflare dashboard → **Zero Trust** → **Networks →
+   Tunnels** → **Create a tunnel** → type **Cloudflared** → name it `irisops-demo`.
+2. **Copy the token.** On the install page, copy only the long token after
+   `--token` in any of the install commands. Don't run the install command; Docker
+   runs cloudflared for you.
+3. **Add a public hostname:**
+   - Subdomain `demo`
+   - Your domain
+   - Service type **HTTP**
+   - URL **`iris:52773`** (the IRIS container's name on the Docker network)
+4. **On the VM,** add the token to `.env.demo` and start with the extra override
+   file. Use this instead of the step 4 command; the rest of the steps are the same:
+
+   ```bash
+   echo 'TUNNEL_TOKEN=<paste the token>' >> .env.demo
+   set -a; . ./.env.demo; set +a
+   docker compose -f docker-compose.yml -f docker-compose.demo.yml -f docker-compose.named-tunnel.yml up -d --build
+   ```
+
+The demo is then at `https://demo.yourdomain.com/irisops/`. `scripts/demo-reset.sh`
+picks up the named tunnel automatically when `TUNNEL_TOKEN` is in `.env.demo`. Skip
+step 5; the URL is the hostname you chose.
+
 ## Things to know
 
-- **The URL changes if the tunnel container restarts** (a VM reboot, or `docker
-  compose down`). Run step 5 again and update the links. For a permanent URL, add a
-  domain to Cloudflare, create a named tunnel in the dashboard, and replace the
-  tunnel `command` in `docker-compose.demo.yml` with
-  `tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}`.
+- **A quick-tunnel URL changes if the tunnel container restarts** (a VM reboot, or
+  `docker compose down`). Run step 5 again and update the links, or use a named
+  tunnel (above).
 - **Quick tunnels have no uptime guarantee.** Cloudflare intends them for testing.
   They're fine for a contest demo; check the link now and then during voting.
 - **`demo` is an administrator (`%Manager`),** so judges can try the safe fixes.

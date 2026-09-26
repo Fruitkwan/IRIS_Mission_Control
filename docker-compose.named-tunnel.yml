@@ -1,0 +1,9 @@
+# Optional: a permanent URL on your own domain through a Cloudflare named tunnel
+# (see DEPLOY.md, "Permanent URL"). Layer it on top of the demo override:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml -f docker-compose.named-tunnel.yml up -d --build
+# The tunnel token comes from the Cloudflare dashboard and stays in .env.demo.
+services:
+  tunnel:
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN (see DEPLOY.md)}
