@@ -1,4 +1,4 @@
-# IRIS Mission Control
+# <img src="docs/images/logo.svg" width="44" alt="" align="top"> IRIS Mission Control
 
 **Diagnose your InterSystems IRIS instance, see the evidence, and fix it safely — from a browser or an AI agent.**
 
