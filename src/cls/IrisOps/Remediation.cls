@@ -59,16 +59,27 @@ ClassMethod History(request As %CSP.Request, response As %CSP.Response) As %Stat
         set rows = []
         new $namespace
         set $namespace = "%SYS"
-        set sql = "SELECT TOP 50 UTCTimeStamp, Username, Event, Description, EventData FROM %SYS.Audit "_
-            "WHERE EventSource = ? AND EventType = ? ORDER BY UTCTimeStamp DESC"
-        set rs = ##class(%SQL.Statement).%ExecDirect(, sql, ..#EventSource, ..#EventType)
-        if rs.%SQLCODE<0 throw ##class(%Exception.SQL).CreateFromSQLCODE(rs.%SQLCODE, rs.%Message)
-        while rs.%Next() {
+        // Embedded SQL has no SQL-privilege check: the broker already requires %Admin_Secure,
+        // which is what the classic portal requires to view audit records. Dynamic SQL would
+        // also need SELECT on %SYS.Audit, which administrators with %Manager do not have.
+        set source = ..#EventSource, type = ..#EventType
+        &sql(DECLARE History CURSOR FOR
+             SELECT TOP 50 UTCTimeStamp, Username, Event, Description, EventData
+               INTO :ts, :user, :event, :desc, :data
+               FROM %SYS.Audit
+              WHERE EventSource = :source AND EventType = :type
+              ORDER BY UTCTimeStamp DESC)
+        &sql(OPEN History)
+        if SQLCODE<0 throw ##class(%Exception.SQL).CreateFromSQLCODE(SQLCODE, $get(%msg))
+        for {
+            &sql(FETCH History)
+            quit:SQLCODE'=0
             // UTC as ISO 8601 so browsers do not read it as local time.
-            set entry = {"timestamp":($translate(rs.UTCTimeStamp, " ", "T")_"Z"), "username":(rs.Username), "action":(rs.Event), "description":(rs.Description)}
-            try { do entry.%Set("data", {}.%FromJSON(rs.EventData)) } catch { }
+            set entry = {"timestamp":($translate(ts, " ", "T")_"Z"), "username":(user), "action":(event), "description":(desc)}
+            try { do entry.%Set("data", {}.%FromJSON(data)) } catch { }
             do rows.%Push(entry)
         }
+        &sql(CLOSE History)
         set response.Status = "200 OK"
         write {"records":(rows)}.%ToJSON()
     } catch ex {

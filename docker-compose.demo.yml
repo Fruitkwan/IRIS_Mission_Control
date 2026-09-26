@@ -1,0 +1,23 @@
+# Public online demo (see DEPLOY.md). Use together with docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+# No ports are published on the host: the portal is reachable only through a
+# Cloudflare quick tunnel (https://<random>.trycloudflare.com), and MCP stays private.
+services:
+  iris:
+    ports: !reset []
+
+  mcp:
+    ports: !reset []
+    environment:
+      # The demo setup replaces the default _SYSTEM password; MCP uses the demo account.
+      IRIS_USER: demo
+      IRIS_PASSWORD: ${IRISOPS_DEMO_PASSWORD:?set IRISOPS_DEMO_PASSWORD (see DEPLOY.md)}
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: irisops-tunnel
+    command: tunnel --no-autoupdate --url http://iris:52773
+    restart: unless-stopped
+    depends_on:
+      iris:
+        condition: service_healthy
