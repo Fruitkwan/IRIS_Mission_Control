@@ -1,16 +1,9 @@
-import { createContext, useCallback, useContext, useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { tokenStore } from './token';
 import { axios } from '../api/axios-instance';
 import { endBrokerSession, startBrokerSession } from '../api/broker';
 
-type AuthState = {
-  isAuthenticated: boolean;
-  user: string;
-  login: (user: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-};
-
-const Ctx = createContext<AuthState>(null as never);
+import { Ctx } from './auth-context';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   useSyncExternalStore(
@@ -45,4 +38,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useAuth = () => useContext(Ctx);

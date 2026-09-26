@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
 import { axios } from '../../api/axios-instance';
-import { resultOf } from '../../api/helpers';
 import { Badge, Button } from '../../components/ui';
-import { useToast, errText } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
+import { errText } from '../../lib/errors';
 import { ResourcePage } from '../ResourcePage';
 import { useGetDevices } from '../../api/generated/device/device';
 import { useGetLocks } from '../../api/generated/lock/lock';
@@ -122,4 +122,3 @@ export function SessionsPage() {
   );
 }
 
-export { resultOf };

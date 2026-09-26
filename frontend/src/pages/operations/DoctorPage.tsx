@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, CircleDashed, Download, History, Loader2, Search, Stethoscope } from 'lucide-react';
-import { errText } from '../../components/toast';
+import { errText } from '../../lib/errors';
 import { PageHeader } from '../../components/PageHeader';
 import { Badge, Button, Card, Input } from '../../components/ui';
 import { Drawer } from '../../components/DetailDrawer';

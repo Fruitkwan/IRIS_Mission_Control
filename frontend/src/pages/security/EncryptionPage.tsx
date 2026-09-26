@@ -8,7 +8,8 @@ import { PageHeader } from '../../components/PageHeader';
 import { SchemaForm } from '../../components/SchemaForm';
 import { Tabs } from '../../components/Tabs';
 import { Badge, Button, Card, ErrorState, Input, PageLoader } from '../../components/ui';
-import { useToast, errText } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
+import { errText } from '../../lib/errors';
 import { requestSchema, resolveSchema } from '../../lib/spec';
 
 type Row = Record<string, unknown>;

@@ -1,5 +1,11 @@
-import { useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
+import { useEffect, useRef, useState } from 'react';
+// Only the chart parts in use, not all of echarts (about 1 MB less).
+import * as echarts from 'echarts/core';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+
+echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 import { useQuery } from '@tanstack/react-query';
 import { axios } from '../api/axios-instance';
 import { resultOf } from '../api/helpers';
@@ -69,7 +75,7 @@ const CHART_COLORS = {
 
 function LiveChart({ title, series }: { title: string; series: { name: string; data: number[]; color: string }[] }) {
   const ref = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<echarts.ECharts | null>(null);
+  const chartRef = useRef<ReturnType<typeof echarts.init> | null>(null);
   const theme = useTheme();
   const c = CHART_COLORS[theme];
 
@@ -134,29 +140,24 @@ function LiveChart({ title, series }: { title: string; series: { name: string; d
 
 const HISTORY_LEN = 60;
 
+type History = { glo: number[]; rd: number[]; wr: number[]; rt: number[] };
+
+/** Appends one sample per series, keeping the newest HISTORY_LEN points. */
+const appendSample = (h: History, perf: NonNullable<MainDash['Performance']>): History => {
+  const push = (list: number[], v?: number) => [...list, v ?? 0].slice(-HISTORY_LEN);
+  return { glo: push(h.glo, perf.GlobalRefsPerSecond), rd: push(h.rd, perf.DiskReads), wr: push(h.wr, perf.DiskWrites), rt: push(h.rt, perf.RoutineRefs) };
+};
+
 export function Dashboard() {
   const main = usePoll('/v2/monitor/dashboard/main', 3000);
   const info = useServerInfo();
-  const histRef = useRef<{ glo: number[]; rd: number[]; wr: number[]; rt: number[] }>({
-    glo: [],
-    rd: [],
-    wr: [],
-    rt: [],
-  });
-
   const d = main.data as MainDash | undefined;
-
-  useEffect(() => {
-    if (!d?.Performance) return;
-    const h = histRef.current;
-    h.glo.push(d.Performance.GlobalRefsPerSecond ?? 0);
-    h.rd.push(d.Performance.DiskReads ?? 0);
-    h.wr.push(d.Performance.DiskWrites ?? 0);
-    h.rt.push(d.Performance.RoutineRefs ?? 0);
-    for (const k of Object.keys(h) as (keyof typeof h)[]) {
-      if (h[k].length > HISTORY_LEN) h[k].shift();
-    }
-  }, [d]);
+  // Chart history is state, extended once per new poll result while rendering
+  // (React's pattern for deriving state from a changed value), so charts re-render with it.
+  const [hist, setHist] = useState<{ source?: MainDash; series: History }>({ series: { glo: [], rd: [], wr: [], rt: [] } });
+  if (d?.Performance && d !== hist.source) {
+    setHist({ source: d, series: appendSample(hist.series, d.Performance) });
+  }
 
   if (main.isLoading) return <PageLoader />;
   if (main.error) return <ErrorState error={main.error} retry={() => main.refetch()} />;
@@ -191,12 +192,12 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <LiveChart title="Global references / sec" series={[{ name: 'glo refs/s', data: [...histRef.current.glo], color: '#2dd4bf' }]} />
+        <LiveChart title="Global references / sec" series={[{ name: 'glo refs/s', data: [...hist.series.glo], color: '#2dd4bf' }]} />
         <LiveChart
           title="Disk I/O"
           series={[
-            { name: 'reads', data: [...histRef.current.rd], color: '#60a5fa' },
-            { name: 'writes', data: [...histRef.current.wr], color: '#f59e0b' },
+            { name: 'reads', data: [...hist.series.rd], color: '#60a5fa' },
+            { name: 'writes', data: [...hist.series.wr], color: '#f59e0b' },
           ]}
         />
       </div>

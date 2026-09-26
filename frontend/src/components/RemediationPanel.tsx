@@ -7,7 +7,7 @@ import {
   type AuditEntry, type Plan, type Remediation, type RemediationApi,
 } from '../health/remediation';
 import { recordRemediation } from '../health/remediationAudit';
-import { errText } from './toast';
+import { errText } from '../lib/errors';
 import { Badge, Button } from './ui';
 
 const api: RemediationApi = {

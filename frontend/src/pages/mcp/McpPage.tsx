@@ -4,7 +4,7 @@ import { Bot, Copy, Plug, RefreshCw } from 'lucide-react';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable } from '../../components/DataTable';
 import { Badge, Button, Card, CardHeader } from '../../components/ui';
-import { useToast } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
 import { fmtDate } from '../../lib/utils';
 
 const MCP_URL = (import.meta.env.VITE_MCP_URL as string | undefined) ?? 'http://localhost:3333';

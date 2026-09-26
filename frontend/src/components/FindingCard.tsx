@@ -3,13 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Finding } from '../health/types';
 import { cn, fmtDate } from '../lib/utils';
 import { Badge } from './ui';
-
-export const SEV_TONE = {
-  critical: 'red',
-  warning: 'amber',
-  info: 'blue',
-  recommendation: 'purple',
-} as const;
+import { SEV_TONE } from '../health/severity';
 
 const SEV_ICON = {
   critical: XOctagon,

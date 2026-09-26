@@ -4,7 +4,7 @@ import { HeartPulse, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../../components/PageHeader';
 import { Badge, Button, Card, CardHeader, EmptyState, Input, PageLoader } from '../../components/ui';
-import { useToast } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
 import { useGetWebApps } from '../../api/generated/web-app/web-app';
 import { resultOf } from '../../api/helpers';
 import {

@@ -42,13 +42,13 @@ import {
   Workflow,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Badge, Button } from '../ui';
-import { useAuth } from '../../auth/AuthContext';
+import { Badge, Button, PageLoader } from '../ui';
+import { useAuth } from '../../auth/auth-context';
 import { useQuery } from '@tanstack/react-query';
 import { axios } from '../../api/axios-instance';
 import { resultOf } from '../../api/helpers';
 import { toggleTheme, useTheme } from '../../lib/theme';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 
 const useServerInfo = () =>
   useQuery({
@@ -321,7 +321,9 @@ export function AppShell({ onOpenPalette }: { onOpenPalette: () => void }) {
           </div>
         </header>
         <main className="min-w-0 flex-1 overflow-y-auto p-5">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

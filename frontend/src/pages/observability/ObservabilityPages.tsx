@@ -4,7 +4,8 @@ import { Camera, DatabaseZap, GitCompareArrows, Trash2 } from 'lucide-react';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable } from '../../components/DataTable';
 import { Button, Card, CardHeader, ErrorState, Select } from '../../components/ui';
-import { errText, useToast } from '../../components/toast';
+import { errText } from '../../lib/errors';
+import { useToast } from '../../components/toast-context';
 import {
   captureConfigSnapshot, captureMetricSnapshot, deleteConfigSnapshot, diffConfigs, getConfigSnapshot,
   importLegacySnapshots, latestFixPair, legacySnapshotCount, listConfigSnapshots, listMetricSnapshots,

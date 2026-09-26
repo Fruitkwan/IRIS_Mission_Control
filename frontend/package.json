@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings",
     "test:health": "node --experimental-strip-types --test tests/health-rules.test.mjs",
     "record:demo": "node scripts/record-doctor-demo.mjs",
     "preview": "vite preview",

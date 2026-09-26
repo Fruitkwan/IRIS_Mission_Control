@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Globe } from 'lucide-react';
 import { Badge, Button } from '../components/ui';
-import { useToast, errText } from '../components/toast';
+import { useToast } from '../components/toast-context';
+import { errText } from '../lib/errors';
 import { axios } from '../api/axios-instance';
 import { ResourcePage } from './ResourcePage';
 import { useGetWebApps } from '../api/generated/web-app/web-app';

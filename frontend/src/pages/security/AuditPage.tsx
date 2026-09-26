@@ -8,7 +8,8 @@ import { Drawer, KeyValueGrid } from '../../components/DetailDrawer';
 import { PageHeader } from '../../components/PageHeader';
 import { Tabs } from '../../components/Tabs';
 import { Button, Card, Input, Toggle } from '../../components/ui';
-import { useToast, errText } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
+import { errText } from '../../lib/errors';
 
 type Row = Record<string, unknown>;
 

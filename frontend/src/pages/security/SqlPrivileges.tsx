@@ -6,7 +6,8 @@ import { DataTable } from '../../components/DataTable';
 import { PageHeader } from '../../components/PageHeader';
 import { Tabs } from '../../components/Tabs';
 import { Badge, Button, Card, Input, Select } from '../../components/ui';
-import { useToast, errText } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
+import { errText } from '../../lib/errors';
 import { useGetSecurityUsers, useGetSecurityRoles } from '../../api/generated/security/security';
 import { useGetNamespaces } from '../../api/generated/namespace/namespace';
 

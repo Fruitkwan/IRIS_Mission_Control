@@ -7,7 +7,8 @@ import { Drawer, KeyValueGrid } from '../../components/DetailDrawer';
 import { PageHeader } from '../../components/PageHeader';
 import { Tabs } from '../../components/Tabs';
 import { Badge, Button, Input, PageLoader } from '../../components/ui';
-import { useToast, errText } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
+import { errText } from '../../lib/errors';
 import { resultOf } from '../../api/helpers';
 import { ResourcePage } from '../ResourcePage';
 import {

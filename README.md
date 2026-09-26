@@ -295,7 +295,7 @@ cd mcp-server && npm ci && IRIS_URL=http://localhost:52773/api/admin npm start
 |---|---|
 | `npm test` | Rule, scoring, collector and remediation tests (frontend); secret-redaction tests (mcp-server) |
 | `npm run build` | Type-check and production build into `web/` |
-| `npm run lint` | oxlint |
+| `npm run lint` | oxlint; any warning fails the build |
 | `npm run generate` | Regenerate the typed API client from the OpenAPI spec |
 | `npm run record:demo` | Record the captioned IRIS Doctor demo video (see `demo/README.md`) |
 

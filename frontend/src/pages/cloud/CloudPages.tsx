@@ -5,7 +5,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { DataTable } from '../../components/DataTable';
 import { Drawer } from '../../components/DetailDrawer';
 import { Badge, Button, Card, Input, Select } from '../../components/ui';
-import { useToast } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
 import {
   getConnections, removeConnection, testConnection, upsertConnection,
   PROVIDER_FIELDS, PROVIDER_LABEL, type CloudConnection, type TestResult,
@@ -20,11 +20,13 @@ function ConnectionCard({ c, onChanged }: { c: CloudConnection; onChanged: () =>
   const test = async () => {
     setTesting(true);
     const r = await testConnection(c);
-    r && setRes(r);
-    c.status = r.status;
-    c.lastCheckedAt = new Date().toISOString();
-    c.lastError = r.status === 'connected' ? undefined : r.detail;
-    upsertConnection(c);
+    setRes(r);
+    upsertConnection({
+      ...c,
+      status: r.status,
+      lastCheckedAt: new Date().toISOString(),
+      lastError: r.status === 'connected' ? undefined : r.detail,
+    });
     setTesting(false);
     onChanged();
   };

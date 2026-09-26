@@ -7,7 +7,8 @@ import { DataTable, type Column } from '../../components/DataTable';
 import { Drawer, KeyValueGrid } from '../../components/DetailDrawer';
 import { PageHeader } from '../../components/PageHeader';
 import { Badge, Button, Card, Input } from '../../components/ui';
-import { useToast, errText } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
+import { errText } from '../../lib/errors';
 import { cn } from '../../lib/utils';
 
 type Proc = {
@@ -65,7 +66,7 @@ export function ProcessesPage() {
       await axios.post('/v2/process/broadcast', { Message: broadcast.msg, Pid: broadcast.pid });
       toast('ok', 'Broadcast sent');
       setBroadcast({ open: false, msg: '' });
-    } catch (e) {
+    } catch {
       // try alternate shape
       try {
         await axios.post('/v2/process/broadcast', { message: broadcast.msg, pid: broadcast.pid });

@@ -48,6 +48,7 @@ export default defineConfig({
   build: {
     outDir: '../web',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 2000,
+    // Pages are lazy-loaded; warn if any single chunk grows past ~600 KB again.
+    chunkSizeWarningLimit: 600,
   },
 });
