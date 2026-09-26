@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { axios } from '../../api/axios-instance';
 import { resultOf } from '../../api/helpers';
@@ -7,7 +8,8 @@ import { Drawer, KeyValueGrid } from '../../components/DetailDrawer';
 import { PageHeader } from '../../components/PageHeader';
 import { Tabs } from '../../components/Tabs';
 import { Button, Card, Input, Toggle } from '../../components/ui';
-import { useToast, errText } from '../../components/toast';
+import { useToast } from '../../components/toast-context';
+import { errText } from '../../lib/errors';
 
 type Row = Record<string, unknown>;
 
@@ -44,16 +46,27 @@ function AuditToggle() {
 }
 
 function AuditEvents() {
+  const [searchParams] = useSearchParams();
+  const selectedEvent = searchParams.get('event');
   const q = useQuery({
     queryKey: ['audit-events'],
     queryFn: () => axios.get('/v2/security/audit/events', { timeout: 15000 }).then((r) => resultOf<Row[]>(r.data) ?? []),
     retry: false,
   });
-  const rows = q.data ?? [];
+  const rows = selectedEvent
+    ? (q.data ?? []).filter((row) => row.EventName === selectedEvent)
+    : (q.data ?? []);
   const qc = useQueryClient();
   const { toast } = useToast();
   return (
-    <DataTable
+    <div className="space-y-3">
+      {selectedEvent && (
+        <div className="flex items-center justify-between rounded-md border border-accent-500/30 bg-accent-500/5 px-3 py-2 text-xs text-ink-200">
+          <span>Showing audit event <code className="font-mono text-accent-300">{selectedEvent}</code></span>
+          <Link to="/security/audit" className="text-accent-300 hover:underline">Show all events</Link>
+        </div>
+      )}
+      <DataTable
       columns={[
         {
           key: 'Enabled',
@@ -92,7 +105,8 @@ function AuditEvents() {
       rowKey={(r) => String(r.EventName)}
       dense
       searchPlaceholder="Filter events…"
-    />
+      />
+    </div>
   );
 }
 

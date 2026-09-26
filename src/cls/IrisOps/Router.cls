@@ -10,7 +10,6 @@ XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
 <Routes>
   <Route Url="/" Method="GET" Call="Index" />
   <Route Url="/health" Method="GET" Call="Health" />
-  <Route Url="/api/cloud/test" Method="POST" Call="CloudTest" />
   <Route Url="/(.*)" Method="GET" Call="Serve" />
 </Routes>
 }
@@ -42,8 +41,32 @@ ClassMethod SendFile(url As %String, contentType As %String) As %Status
     quit ..SendStream(file, contentType)
 }
 
+/// Origins the portal may call besides its own (the MCP sidecar by default).
+/// Override per deployment, e.g. to add an external FHIR server:
+///   set ^IrisOps("security","connect-src")="https://mcp.example.com https://fhir.example.com"
+Parameter DefaultConnectSrc = "http://localhost:3333 http://127.0.0.1:3333";
+
+/// Content-Security-Policy and related headers. Scripts may only come from this
+/// application, which blocks injected inline or third-party scripts, the main way
+/// an XSS attack would read the tokens the SPA keeps in browser storage.
+ClassMethod SecurityHeaders()
+{
+    set connect = $get(^IrisOps("security","connect-src"), ..#DefaultConnectSrc)
+    // Accept only URL-like origin lists; anything else falls back to the default.
+    if connect'?.(1AN,1" ",1":",1"/",1".",1"-",1"*",1"[",1"]") set connect = ..#DefaultConnectSrc
+    set csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "_
+        "img-src 'self' data:; font-src 'self' data:; connect-src 'self' "_connect_"; "_
+        "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    do %response.SetHeader("Content-Security-Policy", csp)
+    do %response.SetHeader("X-Content-Type-Options", "nosniff")
+    do %response.SetHeader("X-Frame-Options", "DENY")
+    do %response.SetHeader("Referrer-Policy", "same-origin")
+    do %response.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+}
+
 ClassMethod SendStream(file As %String, contentType As %String) As %Status
 {
+    do ..SecurityHeaders()
     // Stream raw bytes: NoCharSetConvert stops CSP from translating the
     // payload (files are already UTF-8), and the charset is declared in the
     // Content-Type header instead so text/* still renders correctly.
@@ -83,11 +106,6 @@ ClassMethod Health() As %Status
     set %response.ContentType = "application/json"
     write "{""status"":""ok"",""product"":""irisops"",""iris"":""" _ $zv _ """}"
     quit $$$OK
-}
-
-ClassMethod CloudTest() As %Status
-{
-    quit ##class(IrisOps.CloudBroker).Test(%request, %response)
 }
 
 }

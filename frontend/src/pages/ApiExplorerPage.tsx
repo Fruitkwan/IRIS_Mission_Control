@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { ChevronRight, Copy, Play, Search } from 'lucide-react';
+import type { AxiosRequestConfig } from 'axios';
 import { axios } from '../api/axios-instance';
 import { Badge, Button, Card, Input, Textarea } from '../components/ui';
 import { PageHeader } from '../components/PageHeader';
 import { SchemaForm } from '../components/SchemaForm';
 import { apiSpec, opQueryParams, resolveSchema, type OperationObject } from '../lib/spec';
 import { cn } from '../lib/utils';
-import { useToast } from '../components/toast';
+import { useToast } from '../components/toast-context';
 
 type OpEntry = { method: string; path: string; op: OperationObject; tag: string };
 
@@ -17,6 +18,18 @@ const METHOD_TONE: Record<string, string> = {
   delete: 'bg-red-500/15 text-red-400 border-red-500/30',
   head: 'bg-ink-700 text-ink-300 border-ink-600',
 };
+
+/** Sends one request and reports its status, duration and body, including HTTP errors. */
+async function timedRequest(config: AxiosRequestConfig) {
+  const t0 = performance.now();
+  try {
+    const r = await axios.request(config);
+    return { status: r.status, ms: Math.round(performance.now() - t0), data: r.data as unknown };
+  } catch (e) {
+    const err = e as { response?: { status?: number; data?: unknown }; message?: string };
+    return { status: err.response?.status ?? 0, ms: Math.round(performance.now() - t0), data: err.response?.data ?? { error: err.message } };
+  }
+}
 
 export function ApiExplorerPage() {
   const { toast } = useToast();
@@ -60,25 +73,13 @@ export function ApiExplorerPage() {
     if (!sel) return;
     setBusy(true);
     setResp(null);
-    const t0 = performance.now();
     try {
       const qp: Record<string, string> = {};
       for (const p of queryParams) if (params[p.name] !== '' && params[p.name] != null) qp[p.name] = params[p.name];
       const payload = useRaw ? (bodyRaw.trim() ? JSON.parse(bodyRaw) : undefined) : Object.keys(body).length ? body : undefined;
-      const r = await axios.request({
-        method: sel.method,
-        url: sel.path,
-        params: qp,
-        data: payload,
-      });
-      setResp({ status: r.status, ms: Math.round(performance.now() - t0), data: r.data });
+      setResp(await timedRequest({ method: sel.method, url: sel.path, params: qp, data: payload }));
     } catch (e) {
-      const err = e as { response?: { status?: number; data?: unknown }; message?: string };
-      setResp({
-        status: err.response?.status ?? 0,
-        ms: Math.round(performance.now() - t0),
-        data: err.response?.data ?? { error: err.message },
-      });
+      setResp({ status: 0, ms: 0, data: { error: (e as Error).message } });
     } finally {
       setBusy(false);
     }

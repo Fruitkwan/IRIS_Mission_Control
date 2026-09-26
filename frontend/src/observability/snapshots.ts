@@ -1,11 +1,21 @@
 import { axios } from '../api/axios-instance';
+import { brokerFetch } from '../api/broker';
 
-const METRICS_LS = 'irisops-snapshots-metrics';
-const CONFIG_LS = 'irisops-snapshots-config';
-const MAX = 200;
+export { diffConfigs, latestFixPair } from './diff';
+
+// Time Machine (metrics) and Configuration Drift (config) snapshots are stored in
+// IRIS (IrisOps.Snapshot) through the broker, so they are durable, shared by every
+// administrator and attributed to the user who captured them.
 
 export interface MetricSnapshot {
+  id?: string;
   ts: string;
+  label?: string;
+  createdBy?: string;
+  assessmentScore?: number;
+  /** Remediation this snapshot brackets, with its phase. */
+  fix?: string;
+  phase?: 'before' | 'after';
   globalRefsPerSec?: number;
   diskReads?: number;
   diskWrites?: number;
@@ -23,19 +33,32 @@ export interface ConfigSnapshot {
   id: string;
   ts: string;
   label: string;
-  data: Record<string, unknown>;
+  createdBy?: string;
+  /** Present when loaded individually (lists return summaries). */
+  data?: Record<string, unknown>;
 }
 
-const load = <T,>(key: string): T[] => {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? '[]');
-  } catch {
-    return [];
-  }
-};
+interface StoredSnapshot {
+  id: string;
+  kind: 'metrics' | 'config';
+  label: string;
+  ts: string;
+  createdBy: string;
+  data?: Record<string, unknown>;
+}
 
-export function getMetricSnapshots(): MetricSnapshot[] {
-  return load<MetricSnapshot>(METRICS_LS);
+const save = (kind: StoredSnapshot['kind'], label: string, data: object) =>
+  brokerFetch<StoredSnapshot>('/api/snapshots', { method: 'POST', body: JSON.stringify({ kind, label, data }) });
+
+const toMetric = (s: StoredSnapshot): MetricSnapshot => ({ ...(s.data as Partial<MetricSnapshot>), id: s.id, ts: s.ts, label: s.label || undefined, createdBy: s.createdBy });
+
+export async function listMetricSnapshots(): Promise<MetricSnapshot[]> {
+  const { snapshots } = await brokerFetch<{ snapshots: StoredSnapshot[] }>('/api/snapshots?kind=metrics');
+  return snapshots.map(toMetric);
+}
+
+export async function saveDoctorSnapshot(fix: string, phase: 'before' | 'after', assessmentScore: number) {
+  await save('metrics', `${phase === 'before' ? 'Before' : 'After'} fix: ${fix}`, { assessmentScore, fix, phase });
 }
 
 export async function captureMetricSnapshot(): Promise<MetricSnapshot> {
@@ -46,8 +69,7 @@ export async function captureMetricSnapshot(): Promise<MetricSnapshot> {
   const alerts = r?.Alerts ?? {};
   const lic = r?.Licensing ?? {};
   const locks = await axios.get('/v2/locks').then((x) => (x.data?.result ?? []).length).catch(() => undefined);
-  const snap: MetricSnapshot = {
-    ts: new Date().toISOString(),
+  return toMetric(await save('metrics', '', {
     globalRefsPerSec: perf.GlobalRefsPerSecond,
     diskReads: perf.DiskReads,
     diskWrites: perf.DiskWrites,
@@ -59,10 +81,7 @@ export async function captureMetricSnapshot(): Promise<MetricSnapshot> {
     appErrors: alerts.ApplicationErrors,
     licenseUse: lic.LicenseUse,
     cspSessions: usage.CSPSessions,
-  };
-  const list = [snap, ...getMetricSnapshots()].slice(0, MAX);
-  localStorage.setItem(METRICS_LS, JSON.stringify(list));
-  return snap;
+  }));
 }
 
 const CONFIG_SECTIONS: Record<string, string> = {
@@ -78,8 +97,14 @@ const CONFIG_SECTIONS: Record<string, string> = {
   journal: '/v2/journal/settings',
 };
 
-export function getConfigSnapshots(): ConfigSnapshot[] {
-  return load<ConfigSnapshot>(CONFIG_LS);
+export async function listConfigSnapshots(): Promise<ConfigSnapshot[]> {
+  const { snapshots } = await brokerFetch<{ snapshots: StoredSnapshot[] }>('/api/snapshots?kind=config');
+  return snapshots.map(({ id, ts, label, createdBy }) => ({ id, ts, label, createdBy }));
+}
+
+export async function getConfigSnapshot(id: string): Promise<ConfigSnapshot> {
+  const { ts, label, createdBy, data } = await brokerFetch<StoredSnapshot>(`/api/snapshots/${encodeURIComponent(id)}`);
+  return { id, ts, label, createdBy, data };
 }
 
 export async function captureConfigSnapshot(label: string): Promise<ConfigSnapshot> {
@@ -94,39 +119,34 @@ export async function captureConfigSnapshot(label: string): Promise<ConfigSnapsh
       }
     }),
   );
-  const snap: ConfigSnapshot = { id: `cfg-${Date.now()}`, ts: new Date().toISOString(), label, data };
-  const list = [snap, ...getConfigSnapshots()].slice(0, 50);
-  localStorage.setItem(CONFIG_LS, JSON.stringify(list));
-  return snap;
+  const saved = await save('config', label, data);
+  return { id: saved.id, ts: saved.ts, label: saved.label, createdBy: saved.createdBy, data };
 }
 
-export function deleteConfigSnapshot(id: string) {
-  localStorage.setItem(CONFIG_LS, JSON.stringify(getConfigSnapshots().filter((s) => s.id !== id)));
+export async function deleteConfigSnapshot(id: string) {
+  await brokerFetch(`/api/snapshots/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-/** Structural diff: returns lines like `users + {"Name":"x"}` / `roles - {...}` / `tasks ~ ...` */
-export function diffConfigs(a: ConfigSnapshot, b: ConfigSnapshot) {
-  const lines: { section: string; kind: '+' | '-' | '~'; text: string }[] = [];
-  const itemKey = (v: unknown) => {
-    const r = v as Record<string, unknown>;
-    return String(r?.Name ?? r?.Id ?? r?.name ?? JSON.stringify(v));
-  };
-  for (const section of new Set([...Object.keys(a.data), ...Object.keys(b.data)])) {
-    const va = a.data[section];
-    const vb = b.data[section];
-    if (Array.isArray(va) && Array.isArray(vb)) {
-      const ma = new Map(va.map((x) => [itemKey(x), x]));
-      const mb = new Map(vb.map((x) => [itemKey(x), x]));
-      for (const [k, v] of mb) {
-        if (!ma.has(k)) lines.push({ section, kind: '+', text: `${k}: ${JSON.stringify(v).slice(0, 140)}` });
-        else if (JSON.stringify(ma.get(k)) !== JSON.stringify(v)) lines.push({ section, kind: '~', text: `${k} changed` });
-      }
-      for (const [k, v] of ma) {
-        if (!mb.has(k)) lines.push({ section, kind: '-', text: `${k}: ${JSON.stringify(v).slice(0, 140)}` });
-      }
-    } else if (JSON.stringify(va) !== JSON.stringify(vb)) {
-      lines.push({ section, kind: '~', text: 'configuration changed' });
-    }
+// ---- Snapshots saved in this browser by earlier versions ----
+
+const LEGACY = { metrics: 'irisops-snapshots-metrics', config: 'irisops-snapshots-config' } as const;
+
+const readLegacy = <T,>(key: string): T[] => {
+  try { return JSON.parse(localStorage.getItem(key) ?? '[]'); } catch { return []; }
+};
+
+export function legacySnapshotCount(kind: keyof typeof LEGACY) {
+  return readLegacy(LEGACY[kind]).length;
+}
+
+/** Copy this browser's snapshots into IRIS (oldest first), then remove the local copies. */
+export async function importLegacySnapshots(kind: keyof typeof LEGACY): Promise<number> {
+  const local = readLegacy<MetricSnapshot & Partial<ConfigSnapshot>>(LEGACY[kind]).reverse();
+  for (const snap of local) {
+    const { ts, label, data, ...rest } = snap;
+    const note = `imported from browser, captured ${new Date(ts).toLocaleString()}`;
+    await save(kind, label ? `${label} (${note})` : note, kind === 'config' ? data ?? {} : rest);
   }
-  return lines;
+  localStorage.removeItem(LEGACY[kind]);
+  return local.length;
 }

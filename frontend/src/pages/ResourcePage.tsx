@@ -8,7 +8,8 @@ import { Drawer, KeyValueGrid } from '../components/DetailDrawer';
 import { PageHeader } from '../components/PageHeader';
 import { SchemaForm } from '../components/SchemaForm';
 import { Button, Card, Input } from '../components/ui';
-import { useToast, errText } from '../components/toast';
+import { useToast } from '../components/toast-context';
+import { errText } from '../lib/errors';
 import { requestSchema, resolveSchema } from '../lib/spec';
 import type { UseQueryResult } from '@tanstack/react-query';
 

@@ -1,0 +1,19 @@
+zn "%SYS"
+set name="irisops-azure-client"
+set props("Description")="Outbound Azure HTTPS for IRIS Mission Control"
+set props("Enabled")=1
+set props("Type")=0
+set props("VerifyPeer")=1
+set props("CAFile")="/etc/ssl/certs/ca-certificates.crt"
+if '##class(Security.SSLConfigs).Exists(name) set sc=##class(Security.SSLConfigs).Create(name,.props) write "Create status: ",$system.Status.GetErrorText(sc),!
+set req=##class(%Net.HttpRequest).%New()
+set req.Server="login.microsoftonline.com"
+set req.Https=1
+set req.SSLConfiguration=name
+set req.SSLCheckServerIdentity=1
+set req.Timeout=10
+set req.OpenTimeout=5
+set sc=req.Get("/common/v2.0/.well-known/openid-configuration")
+write "TLS test status: ",$system.Status.GetErrorText(sc),!
+if $isobject(req.HttpResponse) write "HTTP status: ",req.HttpResponse.StatusCode,!
+halt

@@ -42,13 +42,13 @@ import {
   Workflow,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Badge, Button } from '../ui';
-import { useAuth } from '../../auth/AuthContext';
+import { Badge, Button, PageLoader } from '../ui';
+import { useAuth } from '../../auth/auth-context';
 import { useQuery } from '@tanstack/react-query';
 import { axios } from '../../api/axios-instance';
 import { resultOf } from '../../api/helpers';
 import { toggleTheme, useTheme } from '../../lib/theme';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 
 const useServerInfo = () =>
   useQuery({
@@ -82,6 +82,7 @@ const NAV: NavGroup[] = [
       { to: '/sessions', label: 'Web Sessions', icon: Globe, color: '#22d3ee' },
       { to: '/license', label: 'License', icon: KeyRound, color: '#fbbf24' },
       { to: '/journal', label: 'Journal', icon: FileClock, color: '#fb923c' },
+      { to: '/messages-log', label: 'Messages Log', icon: FileText, color: '#f87171' },
       { to: '/ecp', label: 'ECP', icon: Network, color: '#818cf8' },
       { to: '/ext-lang', label: 'Ext. Languages', icon: TerminalSquare, color: '#4ade80' },
       { to: '/wqm', label: 'Queue Manager', icon: Workflow, color: '#2dd4bf' },
@@ -321,7 +322,9 @@ export function AppShell({ onOpenPalette }: { onOpenPalette: () => void }) {
           </div>
         </header>
         <main className="min-w-0 flex-1 overflow-y-auto p-5">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

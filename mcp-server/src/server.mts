@@ -9,25 +9,20 @@ import { z } from 'zod';
 import { api, IRIS_URL } from './iris.mts';
 // Reuse the portal's deterministic rules engine (pure TS, type-stripped at runtime).
 import { evaluate, toReport } from '../../frontend/src/health/rules.ts';
+import { collectFrom } from '../../frontend/src/health/collect.ts';
+import { sanitize } from './sanitize.mts';
 
 const PORT = Number(process.env.MCP_PORT ?? 3333);
 const startedAt = Date.now();
 
 // ---- audit ring buffer (sanitized — arguments have secrets stripped) ----
-const SECRET_KEYS = /pass|secret|token|key|credential/i;
 const audit: Record<string, unknown>[] = [];
 function auditCall(client: string, tool: string, args: unknown, ms: number, err?: string) {
-  const sanitized = Object.fromEntries(
-    Object.entries((args ?? {}) as Record<string, unknown>).map(([k, v]) => [
-      k,
-      SECRET_KEYS.test(k) ? '***' : v,
-    ]),
-  );
   audit.unshift({
     ts: new Date().toISOString(),
     client,
     tool,
-    args: sanitized,
+    args: sanitize(args ?? {}),
     durationMs: ms,
     status: err ? 'error' : 'ok',
     error: err,
@@ -60,33 +55,8 @@ function buildServer() {
     });
 
   tool('iris_get_health', 'IRIS Ops rule-based configuration assessment and evidence-backed findings; scores are not InterSystems health metrics', {}, async () => {
-    const paths = {
-      dashboard: '/v2/monitor/dashboard/main',
-      databases: '/v2/databases',
-      processes: '/v2/processes',
-      locks: '/v2/locks',
-      tasks: '/v2/tasks',
-      users: '/v2/security/users',
-      services: '/v2/security/services',
-      webApps: '/v2/web-apps',
-      journalSettings: '/v2/journal/settings',
-      auditEvents: '/v2/security/audit/events',
-      x509: '/v2/security/x509-credentials',
-    };
-    const telemetry: Record<string, unknown> = {};
-    const errors: { collector: string; error: string }[] = [];
-    await Promise.all(
-      Object.entries(paths).map(async ([k, p]) => {
-        try {
-          telemetry[k] = await api(p);
-        } catch (e) {
-          errors.push({ collector: k, error: String(e) });
-        }
-      }),
-    );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const report = toReport(evaluate(telemetry as any), errors);
-    return report;
+    const { telemetry, errors } = await collectFrom((path) => api(path));
+    return toReport(evaluate(telemetry), errors);
   });
 
   tool('iris_list_databases', 'List IRIS databases with mount status and directory', {}, () => api('/v2/databases'));

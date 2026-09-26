@@ -1,15 +1,19 @@
-import { useRef, useState } from 'react';
-import { CheckCircle2, CircleDashed, Download, Loader2, Search, Stethoscope } from 'lucide-react';
-import { axios } from '../../api/axios-instance';
-import { resultOf } from '../../api/helpers';
-import { errText } from '../../components/toast';
+import { useCallback, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { CheckCircle2, CircleDashed, Download, History, Loader2, Search, Stethoscope } from 'lucide-react';
+import { errText } from '../../lib/errors';
 import { PageHeader } from '../../components/PageHeader';
 import { Badge, Button, Card, Input } from '../../components/ui';
 import { Drawer } from '../../components/DetailDrawer';
-import { EvidenceView, FindingCard } from '../../components/FindingCard';
+import { FindingCard } from '../../components/FindingCard';
+import { FindingDetail } from '../../components/FindingDetail';
 import { runDiagnostics } from '../../health/engine';
+import type { AuditEntry, Remediation } from '../../health/remediation';
+import { remediationHistory, type RemediationRecord } from '../../health/remediationAudit';
 import type { Finding, HealthReport } from '../../health/types';
-import { cn } from '../../lib/utils';
+import { cn, fmtDate } from '../../lib/utils';
+import { saveDoctorSnapshot } from '../../observability/snapshots';
 
 function exportReport(r: HealthReport) {
   const lines = [
@@ -43,19 +47,65 @@ function exportReport(r: HealthReport) {
   URL.revokeObjectURL(a.href);
 }
 
+/** An audit record this page just wrote; IRIS can take up to about a minute to expose it to SQL. */
+type PendingRecord = { entry: AuditEntry; at: number };
+
+const matches = (r: RemediationRecord, p: PendingRecord) =>
+  r.action === p.entry.action && r.data?.ruleId === p.entry.ruleId && r.data?.target === p.entry.target &&
+  Date.parse(r.timestamp) >= p.at - 60_000;
+
+function RemediationHistory({ pending }: { pending: PendingRecord[] }) {
+  const q = useQuery({
+    queryKey: ['remediation-history'],
+    queryFn: remediationHistory,
+    // Poll while a record this page wrote has not appeared yet.
+    refetchInterval: (query) => (pending.some((p) => !(query.state.data ?? []).some((r) => matches(r, p))) ? 10_000 : false),
+  });
+  const records = q.data ?? [];
+  const unconfirmed = pending.filter((p) => !records.some((r) => matches(r, p)));
+  if (q.error) return <p className="text-xs text-ink-500">Change history unavailable: {errText(q.error)}</p>;
+  if (!records.length && !unconfirmed.length) return null;
+  return (
+    <Card className="p-4">
+      <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+        <History className="h-3.5 w-3.5" /> Change history · IRIS audit log
+      </h4>
+      <ul className="space-y-1.5 text-xs">
+        {unconfirmed.map((p) => (
+          <li key={`pending-${p.at}`} className="flex flex-wrap items-baseline gap-x-2 text-ink-300">
+            <span className="font-mono text-ink-500">{fmtDate(new Date(p.at).toISOString())}</span>
+            <Badge tone={p.entry.action === 'Rollback' ? 'amber' : 'green'}>{p.entry.action}</Badge>
+            <span>{p.entry.target}</span>
+            <span className="text-ink-500">{p.entry.changes.map((c) => `${c.field}: ${c.before} → ${c.after}`).join(' · ')}</span>
+            <span className="ml-auto text-ink-500" title="IRIS accepted the audit record; it appears in audit queries within about a minute">recorded · appearing shortly</span>
+          </li>
+        ))}
+        {records.slice(0, 10).map((r) => (
+          <li key={r.timestamp + r.action + r.description} className="flex flex-wrap items-baseline gap-x-2 text-ink-300">
+            <span className="font-mono text-ink-500">{fmtDate(r.timestamp)}</span>
+            <Badge tone={r.data?.outcome === 'failed' ? 'red' : r.action === 'Rollback' ? 'amber' : 'green'}>{r.action}</Badge>
+            <span>{r.data?.target ?? r.description}</span>
+            <span className="text-ink-500">{r.data?.changes?.map((c) => `${c.field}: ${c.before} → ${c.after}`).join(' · ')}</span>
+            <span className="ml-auto text-ink-500">by {r.username}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export function DoctorPage() {
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<{ name: string; done: boolean }[]>([]);
   const [report, setReport] = useState<HealthReport | null>(null);
   const [selected, setSelected] = useState<Finding | null>(null);
-  const [auditState, setAuditState] = useState<{ eventEnabled: boolean; masterEnabled: boolean } | null>(null);
-  const [auditBusy, setAuditBusy] = useState(false);
-  const [auditError, setAuditError] = useState('');
-  const [auditResult, setAuditResult] = useState('');
+  const [pendingRecords, setPendingRecords] = useState<PendingRecord[]>([]);
   const [previousScore, setPreviousScore] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState<Finding['severity'] | 'all'>('all');
   const stepsRef = useRef<HTMLDivElement>(null);
+  // A verified fix waiting for the next diagnostics run to confirm the finding cleared.
+  const pendingComparison = useRef<{ remediation: Remediation; finding: Finding } | null>(null);
 
   const diagnose = async () => {
     setRunning(true);
@@ -71,58 +121,31 @@ export function DoctorPage() {
         stepsRef.current?.scrollTo(0, stepsRef.current.scrollHeight);
       });
       setReport(r);
+      const pending = pendingComparison.current;
+      if (pending &&
+        !r.collectorErrors.some((error) => error.collector === pending.remediation.source) &&
+        !r.findings.some((finding) => finding.ruleId === pending.finding.ruleId && finding.title === pending.finding.title)) {
+        // Best effort: a failed snapshot must not hide the diagnosis result.
+        saveDoctorSnapshot(pending.remediation.title, 'after', r.overall).catch(() => {});
+        pendingComparison.current = null;
+      }
       setSteps((s) => s.map((x) => ({ ...x, done: true })));
     } finally {
       setRunning(false);
     }
   };
 
-  const auditParams = { source: '%System', type: '%Login', name: 'Login' };
-
-  const inspectAudit = async () => {
-    setAuditBusy(true);
-    setAuditError('');
-    setAuditState(null);
-    try {
-      const [event, master] = await Promise.all([
-        axios.get('/v2/security/audit/event', { params: auditParams }),
-        axios.get('/v2/security/audit/enabled'),
-      ]);
-      const currentEvent = resultOf<Record<string, unknown>>(event.data);
-      const currentMaster = resultOf<Record<string, unknown>>(master.data);
-      setAuditState({ eventEnabled: currentEvent?.Enabled === true, masterEnabled: currentMaster?.Enabled === true });
-    } catch (e) {
-      setAuditError(`Could not read current audit configuration: ${errText(e)}`);
-    } finally {
-      setAuditBusy(false);
+  const onApplied = useCallback((remediation: Remediation, finding: Finding) => {
+    if (report) {
+      saveDoctorSnapshot(remediation.title, 'before', report.overall).catch(() => {});
+      pendingComparison.current = { remediation, finding };
     }
-  };
+    setPreviousScore(report?.overall ?? null);
+  }, [report]);
 
-  const enableLoginAudit = async () => {
-    if (!auditState || auditState.eventEnabled || !auditState.masterEnabled) return;
-    setAuditBusy(true);
-    setAuditError('');
-    setAuditResult('');
-    try {
-      // Recheck immediately before writing in case another administrator changed it.
-      const before = resultOf<Record<string, unknown>>((await axios.get('/v2/security/audit/event', { params: auditParams })).data);
-      if (before?.Enabled !== false) {
-        setAuditError('The event changed since preview. Review the current state before applying.');
-        setAuditState(null);
-        return;
-      }
-      await axios.put('/v2/security/audit/event', { Enabled: true }, { params: auditParams });
-      const verified = resultOf<Record<string, unknown>>((await axios.get('/v2/security/audit/event', { params: auditParams })).data);
-      if (verified?.Enabled !== true) throw new Error('IRIS did not confirm that the login event is enabled.');
-      setPreviousScore(report?.overall ?? null);
-      setAuditState({ ...auditState, eventEnabled: true });
-      setAuditResult('IRIS confirmed login auditing is enabled. Run diagnostics again to verify the finding and assessment score.');
-    } catch (e) {
-      setAuditError(`Could not verify the change: ${errText(e)}`);
-    } finally {
-      setAuditBusy(false);
-    }
-  };
+  const onRecorded = useCallback((entry: AuditEntry) => {
+    setPendingRecords((p) => [...p, { entry, at: Date.now() }]);
+  }, []);
 
   const counts = report?.summary;
   const severityOrder: Finding['severity'][] = ['critical', 'warning', 'info', 'recommendation'];
@@ -217,7 +240,7 @@ export function DoctorPage() {
           <p className="text-xs text-ink-500">{report.scoreMethod}{report.collectorErrors.length > 0 && ' Some data sources were unavailable, so this assessment is incomplete.'}</p>
 
           {previousScore !== null && (
-            <p className="text-xs text-ink-400">Previous assessment: {previousScore}/100 · Current: {report.overall}/100. Compare the findings below to confirm the change.</p>
+            <p className="text-xs text-ink-400">Previous assessment: {previousScore}/100 · Current: {report.overall}/100. Compare the findings below to confirm the change. <Link to="/observability/timeline" className="text-accent-300 hover:underline">View before/after in Time Machine →</Link></p>
           )}
 
           {report.findings.length > 0 && (
@@ -276,38 +299,19 @@ export function DoctorPage() {
               </ul>
             </Card>
           )}
+          <RemediationHistory pending={pendingRecords} />
         </>
       )}
 
-      <Drawer open={!!selected} onClose={() => { setSelected(null); setAuditState(null); setAuditError(''); setAuditResult(''); }} title={selected?.title ?? ''}>
-        {selected && <div className="space-y-5">
-          <EvidenceView finding={selected} />
-          {selected.ruleId === 'audit-login-off' && (
-            <div className="space-y-3 rounded-md border border-ink-700 p-3 text-xs">
-              <h3 className="text-sm font-semibold">Resolve login auditing finding</h3>
-              <p className="text-ink-400">Preview the live configuration before making this change. The action enables only the %System/%Login/Login event.</p>
-              {!auditState && <Button size="sm" variant="outline" loading={auditBusy} onClick={inspectAudit}>Preview change</Button>}
-              {auditState && (
-                <>
-                  <div className="space-y-1 font-mono text-ink-300">
-                    <div>Audit master switch: {auditState.masterEnabled ? 'enabled' : 'disabled'}</div>
-                    <div>Login event: {auditState.eventEnabled ? 'enabled' : 'disabled'} → enabled</div>
-                  </div>
-                  {!auditState.masterEnabled && <p className="text-amber-400">The master audit switch is disabled. Enable it on the Audit page before changing this event.</p>}
-                  {auditState.eventEnabled && <p className="text-emerald-400">The event is already enabled. Run diagnostics again to refresh this finding.</p>}
-                  {!auditState.eventEnabled && auditState.masterEnabled && <Button size="sm" loading={auditBusy} onClick={enableLoginAudit}>Confirm and enable login auditing</Button>}
-                </>
-              )}
-              {auditError && <p role="alert" className="text-red-400">{auditError}</p>}
-              {auditResult && (
-                <div className="space-y-2">
-                  <p role="status" className="text-emerald-400">{auditResult}</p>
-                  <Button size="sm" variant="outline" onClick={() => { setSelected(null); void diagnose(); }}>Run diagnostics and compare</Button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>}
+      <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? ''}>
+        {selected && (
+          <FindingDetail
+            finding={selected}
+            onApplied={(remediation) => onApplied(remediation, selected)}
+            onRecorded={onRecorded}
+            onRerun={() => { setSelected(null); void diagnose(); }}
+          />
+        )}
       </Drawer>
     </div>
   );

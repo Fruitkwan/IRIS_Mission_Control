@@ -22,6 +22,9 @@ function f(
 const SYSTEM_RO_DBS = new Set(['IRISLIB', 'IRISAUDIT']);
 const RISKY_SERVICES = new Set(['%Service_Telnet', '%Service_Terminal', '%Service_FTP', '%Service_WebLink', '%Service_Bindings', '%Service_ComPort']);
 const DEFAULT_ACCOUNTS = new Set(['_SYSTEM', 'Admin', 'SuperUser', 'CSPSystem', 'UnknownUser']);
+// IRIS Mission Control's own portal shell: it serves only static files, the login page and
+// /health without authentication; every API call behind it is authenticated by /api/admin.
+const isPortalShell = (app: Row) => str(app.Name) === '/irisops' || str(app.DispatchClass) === 'IrisOps.Router';
 const isBundledWebApp = (name: string) => /^\/(?:api|csp|isc)\/|^\/ui\/interop(?:\/|$)/.test(name);
 
 export function evaluate(t: Telemetry): Finding[] {
@@ -75,7 +78,7 @@ export function evaluate(t: Telemetry): Finding[] {
   if (serious > 0) {
     findings.push(f('serious-alerts', 'availability', 'critical', `${serious} serious system alert${serious > 1 ? 's' : ''}`, 'The system monitor reports serious alerts requiring attention.', [
       { label: 'Serious alerts', value: String(serious) }, { label: 'Application errors', value: str(alerts.ApplicationErrors) },
-    ], 'Review messages.log and the alert log.', '/logs'));
+    ], 'Review messages.log and the alert log.', '/messages-log'));
   }
   const appErrors = Number(alerts.ApplicationErrors ?? 0);
   if (appErrors > 0) {
@@ -137,7 +140,7 @@ export function evaluate(t: Telemetry): Finding[] {
   for (const task of t.tasks ?? []) {
     if (task.Suspended === true) {
       findings.push(f('task-suspended', 'tasks', 'info', `Task "${task.Name}" is suspended`, `Scheduled task ${task.Name} is suspended and will not run.`, [
-        { label: 'Task', value: str(task.Name) }, { label: 'Next scheduled', value: str(task.NextScheduled) || '—' },
+        { label: 'Task', value: str(task.Name) }, { label: 'Task ID', value: str(task.Id) }, { label: 'Next scheduled', value: str(task.NextScheduled) || '—' },
       ], 'Resume the task if it should be running.', '/tasks'));
     }
   }
@@ -183,12 +186,13 @@ export function evaluate(t: Telemetry): Finding[] {
   if (loginAudit && loginAudit.Enabled === false) {
     findings.push(f('audit-login-off', 'security', 'warning', 'Login auditing is disabled', 'The %System/%Login/Login audit event is not enabled — successful logins are not recorded.', [
       { label: 'Event', value: '%System/%Login/Login' }, { label: 'Enabled', value: 'false' },
-    ], 'Enable login auditing for security forensics.', '/security/audit'));
+    ], 'Enable login auditing for security forensics.', '/security/audit?event=%25System%2F%25Login%2FLogin'));
   }
 
   // ---- Web apps ----
   const bundledUnauthenticated: string[] = [];
   for (const app of t.webApps ?? []) {
+    if (isPortalShell(app)) continue;
     const methods = (app.AuthenticationMethods as string[]) ?? [];
     if (app.Enabled === true && (methods.includes('Unauthenticated') || methods.length === 0)) {
       const name = str(app.Name);

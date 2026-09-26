@@ -190,16 +190,26 @@ ClassMethod NewHttpsRequest(server As %String) As %Net.HttpRequest
     set request.OpenTimeout = 10
     set request.SSLCheckServerIdentity = 1
     set sslConfig = $system.Util.GetEnviron("IRISOPS_SSL_CONFIG")
-    if sslConfig'="" set request.SSLConfiguration = sslConfig
+    if sslConfig="" set sslConfig="irisops-azure-client"
+    set request.SSLConfiguration = sslConfig
     quit request
 }
 
 ClassMethod SafeErrorCode(ex As %Exception.AbstractException) As %String
 {
-    set code = ex.DisplayString()
-    if $length(code)>96 set code=$extract(code,1,96)
-    set code=$translate(code,$char(10)_$char(13)_$char(9),"   ")
-    quit code
+    // Exception text can contain request details. Only emit fixed error codes.
+    set message = ex.DisplayString()
+    set result = "internal-error"
+    for code="unsupported-provider","invalid-config","missing-config","invalid-identity","invalid-wallet-reference","wallet-secret-unavailable","wallet-secret-empty","invalid-vault-url","invalid-vault-host","oauth-transport","oauth-token-missing","vault-transport","vault-get-transport","vault-value-missing" {
+        if message[code set result=code quit
+    }
+    for prefix="oauth-http-","vault-http-","vault-get-http-" {
+        if message[prefix {
+            set status = $extract($piece(message,prefix,2),1,3)
+            if (status?3N) set result=prefix_status quit
+        }
+    }
+    quit result
 }
 
 ClassMethod Log(requestId As %String, provider As %String, stage As %String, outcome As %String, detail As %String)

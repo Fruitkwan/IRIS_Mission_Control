@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { RefreshCw, Stethoscope } from 'lucide-react';
 import { PageHeader } from '../../components/PageHeader';
 import { Badge, Button, Card, CardHeader, PageLoader } from '../../components/ui';
-import { FindingCard, EvidenceView } from '../../components/FindingCard';
+import { FindingCard } from '../../components/FindingCard';
+import { FindingDetail } from '../../components/FindingDetail';
 import { Drawer } from '../../components/DetailDrawer';
 import { useHealthReport } from '../../health/useHealth';
 import type { Finding } from '../../health/types';
@@ -145,7 +146,7 @@ export function OperationsPage() {
       </Card>
 
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? ''}>
-        {selected && <EvidenceView finding={selected} />}
+        {selected && <FindingDetail finding={selected} onRerun={() => { setSelected(null); void report.refetch(); }} />}
       </Drawer>
     </div>
   );

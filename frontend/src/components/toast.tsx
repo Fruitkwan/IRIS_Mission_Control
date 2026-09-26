@@ -1,12 +1,10 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { CheckCircle2, XCircle, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-type Toast = { id: number; kind: 'ok' | 'err'; text: string };
-type ToastCtx = { toast: (kind: 'ok' | 'err', text: string) => void };
+import { Ctx } from './toast-context';
 
-const Ctx = createContext<ToastCtx>({ toast: () => {} });
-export const useToast = () => useContext(Ctx);
+type Toast = { id: number; kind: 'ok' | 'err'; text: string };
 
 let nid = 1;
 
@@ -47,20 +45,5 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         ))}
       </div>
     </Ctx.Provider>
-  );
-}
-
-export function errText(e: unknown): string {
-  const err = e as {
-    response?: { data?: { status?: { errors?: { error?: string }[] }; message?: string; errors?: { error?: string }[] }; status?: number };
-    message?: string;
-  };
-  const d = err?.response?.data;
-  return (
-    d?.status?.errors?.[0]?.error ||
-    d?.errors?.[0]?.error ||
-    d?.message ||
-    err?.message ||
-    'Request failed'
   );
 }

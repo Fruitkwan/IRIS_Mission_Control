@@ -6,7 +6,9 @@
   "private": true,
   "scripts": {
     "start": "node --experimental-strip-types src/server.mts",
-    "dev": "node --watch --experimental-strip-types src/server.mts"
+    "dev": "node --watch --experimental-strip-types src/server.mts",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "typecheck": "node --experimental-strip-types --check src/server.mts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.0",

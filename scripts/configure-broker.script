@@ -1,0 +1,10 @@
+zn "%SYS"
+set props("Recurse")=1
+set props("AutheEnabled")=32
+set props("DispatchClass")="IrisOps.Broker.Router"
+set sc=##class(Security.Applications).Modify("/irisops-broker",.props)
+write "Modify status: ",$system.Status.GetErrorText(sc),!
+set sc=##class(Security.Applications).Get("/irisops-broker",.current)
+write "Get status: ",$system.Status.GetErrorText(sc),!
+write "DispatchClass=",$get(current("DispatchClass"))," Recurse=",$get(current("Recurse"))," JWTAuthEnabled=",$get(current("JWTAuthEnabled"))," AutheEnabled=",$get(current("AutheEnabled")),!
+halt

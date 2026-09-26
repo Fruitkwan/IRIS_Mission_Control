@@ -3,7 +3,8 @@ import { PageHeader } from '../../components/PageHeader';
 import { DataTable } from '../../components/DataTable';
 import { Badge, PageLoader } from '../../components/ui';
 import { Drawer } from '../../components/DetailDrawer';
-import { EvidenceView, SEV_TONE } from '../../components/FindingCard';
+import { FindingDetail } from '../../components/FindingDetail';
+import { SEV_TONE } from '../../health/severity';
 import { useHealthReport } from '../../health/useHealth';
 import type { Finding } from '../../health/types';
 import { fmtDate } from '../../lib/utils';
@@ -38,7 +39,7 @@ export function FindingsPage() {
         onRowClick={setSelected}
       />
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? ''}>
-        {selected && <EvidenceView finding={selected} />}
+        {selected && <FindingDetail finding={selected} onRerun={() => { setSelected(null); void report.refetch(); }} />}
       </Drawer>
     </div>
   );

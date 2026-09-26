@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/auth-context';
 import { Button, Input } from '../components/ui';
-import { errText } from '../components/toast';
+import { errText } from '../lib/errors';
 
 export function Login() {
   const { login } = useAuth();

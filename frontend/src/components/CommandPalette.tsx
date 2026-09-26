@@ -32,15 +32,12 @@ async function loadEntities(): Promise<PaletteItem[]> {
   return out;
 }
 
-export function CommandPalette({
-  open,
-  onClose,
-  items,
-}: {
-  open: boolean;
-  onClose: () => void;
-  items: PaletteItem[];
-}) {
+/** Mounted only while open, so the search and selection start fresh each time. */
+export function CommandPalette({ open, ...props }: { open: boolean; onClose: () => void; items: PaletteItem[] }) {
+  return open ? <PaletteDialog {...props} /> : null;
+}
+
+function PaletteDialog({ onClose, items }: { onClose: () => void; items: PaletteItem[] }) {
   const [q, setQ] = useState('');
   const [idx, setIdx] = useState(0);
   const [entities, setEntities] = useState<PaletteItem[]>([]);
@@ -55,17 +52,12 @@ export function CommandPalette({
   }, [items, entities, q]);
 
   useEffect(() => {
-    if (open) {
-      setQ('');
-      setIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 30);
-      loadEntities().then(setEntities);
-    }
-  }, [open]);
+    const timer = setTimeout(() => inputRef.current?.focus(), 30);
+    loadEntities().then(setEntities);
+    return () => clearTimeout(timer);
+  }, []);
 
 
-
-  if (!open) return null;
 
   const pick = (i: PaletteItem) => {
     onClose();

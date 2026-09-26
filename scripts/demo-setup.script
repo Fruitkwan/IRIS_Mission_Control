@@ -1,0 +1,11 @@
+// Public demo hardening. Run in %SYS after the stack is up (see DEPLOY.md):
+//   docker compose exec -T -e IRISOPS_ADMIN_PASSWORD -e IRISOPS_DEMO_PASSWORD iris iris session IRIS -U %SYS < scripts/demo-setup.script
+// Replaces the well-known default passwords and creates the "demo" account whose
+// password is published for judges. Passwords come from the environment only.
+set admin=$system.Util.GetEnviron("IRISOPS_ADMIN_PASSWORD"),demo=$system.Util.GetEnviron("IRISOPS_DEMO_PASSWORD")
+if ($length(admin)<12)||($length(demo)<8) { write "ABORT: set IRISOPS_ADMIN_PASSWORD (12+ chars) and IRISOPS_DEMO_PASSWORD (8+ chars)",! halt }
+for user="_SYSTEM","Admin","SuperUser" { kill p set p("Password")=admin,p("ChangePassword")=0 set sc=##class(Security.Users).Modify(user,.p) write user,": ",$select(sc=1:"password replaced",1:$system.Status.GetErrorText(sc)),! }
+if '##class(Security.Users).Exists("demo") { set sc=##class(Security.Users).Create("demo","%Manager",demo,"IRIS Mission Control demo") write "demo create: ",$select(sc=1:"ok",1:$system.Status.GetErrorText(sc)),! }
+kill p set p("Password")=demo,p("Roles")="%Manager",p("Enabled")=1,p("ChangePassword")=0,p("PasswordNeverExpires")=1
+set sc=##class(Security.Users).Modify("demo",.p) write "demo: ",$select(sc=1:"ready (%Manager)",1:$system.Status.GetErrorText(sc)),!
+halt

@@ -1,39 +1,64 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, useEffect, useMemo, useState, type ComponentType } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { CommandPalette, type PaletteItem } from './components/CommandPalette';
-import { useAuth } from './auth/AuthContext';
+import { useAuth } from './auth/auth-context';
 import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
-import { ProcessesPage } from './pages/system/ProcessesPage';
-import { DatabasesPage } from './pages/system/DatabasesPage';
-import { NamespacesPage } from './pages/system/NamespacesPage';
-import { DevicesPage, LocksPage, SessionsPage } from './pages/system/DevicesLocksSessions';
-import { LicensePage } from './pages/system/LicensePage';
-import { JournalPage } from './pages/system/JournalPage';
-import { EcpPage, ExtLangPage, WqmPage } from './pages/system/MiscPages';
-import { UsersPage, RolesPage, ResourcesPage, ServicesPage } from './pages/security/BasicSecurity';
-import { PermissionMatrixPage } from './pages/security/PermissionMatrix';
-import { AuditPage } from './pages/security/AuditPage';
-import { LdapPage, SslPage, WebAuthPage, MftPage } from './pages/security/SecurityPages';
-import { EncryptionPage } from './pages/security/EncryptionPage';
-import { SqlPrivilegesPage } from './pages/security/SqlPrivileges';
-import { PrivilegedRoutinesPage, DocDbsPage, FsAccessPage } from './pages/system/ExtraPages';
-import { OperationsPage } from './pages/operations/OperationsPage';
-import { DoctorPage } from './pages/operations/DoctorPage';
-import { FindingsPage } from './pages/operations/FindingsPage';
-import { WalletPage, X509Page, OAuth2Page } from './pages/secrets/SecretsPages';
-import { TasksPage, UpcomingTasksPage, TaskHistoryPage } from './pages/tasks/TaskPages';
-import { WebAppsPage } from './pages/WebAppsPage';
-import { ApiExplorerPage } from './pages/ApiExplorerPage';
-import { LogsPage } from './pages/LogsPage';
-import { AsyncPage } from './pages/AsyncPage';
-import { McpPage } from './pages/mcp/McpPage';
-import { FhirServersPage, FhirCapabilityPage } from './pages/fhir/FhirPages';
-import { FhirExplorerPage } from './pages/fhir/FhirExplorer';
-import { FhirValidatePage } from './pages/fhir/FhirValidate';
-import { CloudOverviewPage, CloudSecretsPage } from './pages/cloud/CloudPages';
-import { TimeMachinePage, DriftPage } from './pages/observability/ObservabilityPages';
+// Pages load on demand, so the login screen and the first page do not download the
+// whole portal (charts, the OpenAPI spec for forms, FHIR tooling).
+const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
+  lazy(() => load().then((m) => ({ default: m[name] })));
+
+const Dashboard = page(() => import('./pages/Dashboard'), 'Dashboard');
+const ProcessesPage = page(() => import('./pages/system/ProcessesPage'), 'ProcessesPage');
+const DatabasesPage = page(() => import('./pages/system/DatabasesPage'), 'DatabasesPage');
+const NamespacesPage = page(() => import('./pages/system/NamespacesPage'), 'NamespacesPage');
+const DevicesPage = page(() => import('./pages/system/DevicesLocksSessions'), 'DevicesPage');
+const LocksPage = page(() => import('./pages/system/DevicesLocksSessions'), 'LocksPage');
+const SessionsPage = page(() => import('./pages/system/DevicesLocksSessions'), 'SessionsPage');
+const LicensePage = page(() => import('./pages/system/LicensePage'), 'LicensePage');
+const JournalPage = page(() => import('./pages/system/JournalPage'), 'JournalPage');
+const MessagesLogPage = page(() => import('./pages/system/MessagesLogPage'), 'MessagesLogPage');
+const EcpPage = page(() => import('./pages/system/MiscPages'), 'EcpPage');
+const ExtLangPage = page(() => import('./pages/system/MiscPages'), 'ExtLangPage');
+const WqmPage = page(() => import('./pages/system/MiscPages'), 'WqmPage');
+const UsersPage = page(() => import('./pages/security/BasicSecurity'), 'UsersPage');
+const RolesPage = page(() => import('./pages/security/BasicSecurity'), 'RolesPage');
+const ResourcesPage = page(() => import('./pages/security/BasicSecurity'), 'ResourcesPage');
+const ServicesPage = page(() => import('./pages/security/BasicSecurity'), 'ServicesPage');
+const PermissionMatrixPage = page(() => import('./pages/security/PermissionMatrix'), 'PermissionMatrixPage');
+const AuditPage = page(() => import('./pages/security/AuditPage'), 'AuditPage');
+const LdapPage = page(() => import('./pages/security/SecurityPages'), 'LdapPage');
+const SslPage = page(() => import('./pages/security/SecurityPages'), 'SslPage');
+const WebAuthPage = page(() => import('./pages/security/SecurityPages'), 'WebAuthPage');
+const MftPage = page(() => import('./pages/security/SecurityPages'), 'MftPage');
+const EncryptionPage = page(() => import('./pages/security/EncryptionPage'), 'EncryptionPage');
+const SqlPrivilegesPage = page(() => import('./pages/security/SqlPrivileges'), 'SqlPrivilegesPage');
+const PrivilegedRoutinesPage = page(() => import('./pages/system/ExtraPages'), 'PrivilegedRoutinesPage');
+const DocDbsPage = page(() => import('./pages/system/ExtraPages'), 'DocDbsPage');
+const FsAccessPage = page(() => import('./pages/system/ExtraPages'), 'FsAccessPage');
+const OperationsPage = page(() => import('./pages/operations/OperationsPage'), 'OperationsPage');
+const DoctorPage = page(() => import('./pages/operations/DoctorPage'), 'DoctorPage');
+const FindingsPage = page(() => import('./pages/operations/FindingsPage'), 'FindingsPage');
+const WalletPage = page(() => import('./pages/secrets/SecretsPages'), 'WalletPage');
+const X509Page = page(() => import('./pages/secrets/SecretsPages'), 'X509Page');
+const OAuth2Page = page(() => import('./pages/secrets/SecretsPages'), 'OAuth2Page');
+const TasksPage = page(() => import('./pages/tasks/TaskPages'), 'TasksPage');
+const UpcomingTasksPage = page(() => import('./pages/tasks/TaskPages'), 'UpcomingTasksPage');
+const TaskHistoryPage = page(() => import('./pages/tasks/TaskPages'), 'TaskHistoryPage');
+const WebAppsPage = page(() => import('./pages/WebAppsPage'), 'WebAppsPage');
+const ApiExplorerPage = page(() => import('./pages/ApiExplorerPage'), 'ApiExplorerPage');
+const LogsPage = page(() => import('./pages/LogsPage'), 'LogsPage');
+const AsyncPage = page(() => import('./pages/AsyncPage'), 'AsyncPage');
+const McpPage = page(() => import('./pages/mcp/McpPage'), 'McpPage');
+const FhirServersPage = page(() => import('./pages/fhir/FhirPages'), 'FhirServersPage');
+const FhirCapabilityPage = page(() => import('./pages/fhir/FhirPages'), 'FhirCapabilityPage');
+const FhirExplorerPage = page(() => import('./pages/fhir/FhirExplorer'), 'FhirExplorerPage');
+const FhirValidatePage = page(() => import('./pages/fhir/FhirValidate'), 'FhirValidatePage');
+const CloudOverviewPage = page(() => import('./pages/cloud/CloudPages'), 'CloudOverviewPage');
+const CloudSecretsPage = page(() => import('./pages/cloud/CloudPages'), 'CloudSecretsPage');
+const TimeMachinePage = page(() => import('./pages/observability/ObservabilityPages'), 'TimeMachinePage');
+const DriftPage = page(() => import('./pages/observability/ObservabilityPages'), 'DriftPage');
 
 const PALETTE_ROUTES: PaletteItem[] = [
   { label: 'Dashboard', to: '/', hint: 'system overview' },
@@ -48,6 +73,7 @@ const PALETTE_ROUTES: PaletteItem[] = [
   { label: 'Web Sessions', to: '/sessions' },
   { label: 'License', to: '/license' },
   { label: 'Journal', to: '/journal' },
+  { label: 'Messages log', to: '/messages-log', hint: 'messages.log and older files' },
   { label: 'ECP', to: '/ecp' },
   { label: 'External Language Servers', to: '/ext-lang' },
   { label: 'Work Queue Manager', to: '/wqm' },
@@ -132,6 +158,7 @@ export default function App() {
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="license" element={<LicensePage />} />
           <Route path="journal" element={<JournalPage />} />
+          <Route path="messages-log" element={<MessagesLogPage />} />
           <Route path="ecp" element={<EcpPage />} />
           <Route path="ext-lang" element={<ExtLangPage />} />
           <Route path="wqm" element={<WqmPage />} />

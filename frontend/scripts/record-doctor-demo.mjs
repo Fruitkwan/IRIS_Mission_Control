@@ -89,16 +89,50 @@ async function authorizedApi() {
   }
 }
 
+async function mcpHealth() {
+  const endpoint = process.env.IRISOPS_MCP_URL ?? 'http://localhost:3333/mcp';
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'iris_get_health', arguments: {} } }),
+  });
+  if (!response.ok) throw new Error(`MCP health request failed (HTTP ${response.status}).`);
+  const body = await response.text();
+  const dataLine = body.split('\n').find((line) => line.startsWith('data:'));
+  const result = JSON.parse(dataLine ? dataLine.slice(5) : body).result;
+  if (result?.isError || !result?.content?.[0]?.text) throw new Error('MCP health response did not contain a report.');
+  return JSON.parse(result.content[0].text);
+}
+
+async function restoreAudit(api, originalEventEnabled) {
+  if (originalEventEnabled === undefined) return;
+  const current = await readAudit(api);
+  if (current.eventEnabled === originalEventEnabled) return;
+  const restored = await api.put('/api/admin/v2/security/audit/event', { params: auditParams, data: { Enabled: originalEventEnabled } });
+  if (!restored.ok() || (await readAudit(api)).eventEnabled !== originalEventEnabled) {
+    throw new Error(`Could not restore the demo audit event (HTTP ${restored.status()}).`);
+  }
+  console.log(`Restored %System/%Login/Login to ${originalEventEnabled ? 'enabled' : 'disabled'}.`);
+}
+
 let api;
 let browser;
 let videoContext;
 let recording;
 let captureError;
+let originalEventEnabled;
 try {
   api = await authorizedApi();
   const initial = await readAudit(api);
-  if (!initial.masterEnabled || initial.eventEnabled) {
-    throw new Error('Demo preflight requires audit master enabled and %System/%Login/Login disabled. No setting was changed.');
+  originalEventEnabled = initial.eventEnabled;
+  if (!initial.masterEnabled) throw new Error('Demo preflight requires the audit master switch to be enabled. No setting was changed.');
+  if (initial.eventEnabled) {
+    if (process.env.IRISOPS_STAGE_DEMO !== '1') {
+      throw new Error('Login auditing is enabled. Set IRISOPS_STAGE_DEMO=1 only if you authorize temporary staging; the original setting will be restored.');
+    }
+    const staged = await api.put('/api/admin/v2/security/audit/event', { params: auditParams, data: { Enabled: false } });
+    if (!staged.ok() || (await readAudit(api)).eventEnabled) throw new Error('Could not stage the disabled login-audit event.');
+    console.log('Temporarily disabled login auditing for the demo.');
   }
 
   await mkdir(outputDir, { recursive: true });
@@ -141,6 +175,18 @@ try {
   await page.getByText('Login auditing is disabled', { exact: true }).waitFor();
   await showCaption(page, 'A finding with evidence', 'Successful logins are not being recorded.');
   await pause(2800);
+  await page.getByRole('link', { name: 'Investigate →' }).click();
+  await page.getByText('Showing audit event', { exact: false }).waitFor();
+  await showCaption(page, 'Investigate the exact event', 'The finding links directly to %System/%Login/Login.');
+  await pause(2600);
+  await page.getByRole('navigation').getByRole('link', { name: 'IRIS Doctor', exact: true }).click();
+  await page.getByRole('button', { name: 'Diagnose IRIS' }).click();
+  await page.getByRole('button', { name: 'Run again' }).waitFor({ timeout: 60_000 });
+  await page.getByRole('textbox', { name: 'Search findings' }).fill('Login auditing');
+  const beforeMcp = await mcpHealth();
+  if (!beforeMcp.findings.some((finding) => finding.ruleId === 'audit-login-off')) throw new Error('MCP did not report the login audit finding before remediation.');
+  await showCaption(page, 'The same result through MCP', `iris_get_health also reports the login-audit finding (assessment ${beforeMcp.overall}/100).`);
+  await pause(2600);
   await page.getByRole('button', { name: 'View evidence' }).click();
   await pause(2500);
 
@@ -157,6 +203,14 @@ try {
   await page.getByText('Previous assessment:', { exact: false }).waitFor({ timeout: 60_000 });
   await page.getByText('No findings match this search and filter.').waitFor();
   await showCaption(page, 'Verified resolution', 'The login audit finding is gone and the assessment is updated.');
+  await pause(2600);
+  const afterMcp = await mcpHealth();
+  if (afterMcp.findings.some((finding) => finding.ruleId === 'audit-login-off')) throw new Error('MCP still reports the login audit finding after remediation.');
+  await showCaption(page, 'MCP verifies resolution', `iris_get_health no longer reports the finding (assessment ${afterMcp.overall}/100).`);
+  await pause(2600);
+  await page.getByRole('link', { name: 'View before/after in Time Machine →' }).click();
+  await page.getByText('What changed?', { exact: false }).waitFor();
+  await showCaption(page, 'Time Machine preserves the evidence', 'Compare the audit event and assessment before and after the fix.');
   await pause(4500);
 
   await videoContext.close();
@@ -175,14 +229,7 @@ try {
     try {
       await api.dispose();
       api = await authorizedApi();
-      const current = await readAudit(api);
-      if (current.eventEnabled) {
-        const restored = await api.put('/api/admin/v2/security/audit/event', { params: auditParams, data: { Enabled: false } });
-        if (!restored.ok() || (await readAudit(api)).eventEnabled) {
-          throw new Error(`Could not restore the demo audit event (HTTP ${restored.status()}).`);
-        }
-        console.log('Restored %System/%Login/Login to disabled.');
-      }
+      await restoreAudit(api, originalEventEnabled);
     } catch (error) {
       captureError = error;
       console.error('Audit restoration failed:', error);
