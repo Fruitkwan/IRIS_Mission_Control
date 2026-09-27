@@ -9,7 +9,10 @@ cd "$(dirname "$0")/.."
 if [ -f .env.demo ]; then set -a; . ./.env.demo; set +a; fi
 : "${IRISOPS_ADMIN_PASSWORD:?set IRISOPS_ADMIN_PASSWORD}" "${IRISOPS_DEMO_PASSWORD:?set IRISOPS_DEMO_PASSWORD}"
 
-compose() { docker compose -f docker-compose.yml -f docker-compose.demo.yml "$@"; }
+# With TUNNEL_TOKEN set (named tunnel on your own domain), include that override too.
+files=(-f docker-compose.yml -f docker-compose.demo.yml)
+if [ -n "${TUNNEL_TOKEN:-}" ]; then files+=(-f docker-compose.named-tunnel.yml); fi
+compose() { docker compose "${files[@]}" "$@"; }
 
 echo "Stopping IRIS and MCP (tunnel stays up)..."
 compose stop iris mcp
@@ -27,4 +30,4 @@ done
 
 echo "Applying demo passwords..."
 compose exec -T -e IRISOPS_ADMIN_PASSWORD -e IRISOPS_DEMO_PASSWORD iris iris session IRIS -U %SYS < scripts/demo-setup.script
-echo "Demo reset complete: $(docker logs irisops-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1)/irisops/"
+echo "Demo reset complete."
