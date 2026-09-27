@@ -3,9 +3,13 @@ services:
     build:
       context: .
     container_name: irisops
-    command: --check-caps false
-    # The -zpm base image's iris-after-start hook can fail on first boot
-    # (upstream dbapi regression); restart policy makes the first run resilient.
+    # Start IRIS directly instead of through the entrypoint's first-boot hook
+    # (iris-after-start), which fails fatally on an upstream dbapi regression and
+    # fails again whenever the container is recreated. This image does not need
+    # the hook: everything is installed at build time. See issue #3.
+    command: /iris-main --check-caps false --ISCAgent false
+    # The entrypoint normally runs iris-main from the home folder (iris-main.log).
+    working_dir: /home/irisowner
     restart: unless-stopped
     environment:
       IRISOPS_SSL_CONFIG: ${IRISOPS_SSL_CONFIG:-}

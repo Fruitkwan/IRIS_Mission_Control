@@ -72,6 +72,12 @@ jobs:
             sleep 10
           done
           exit 1
+      - name: IRIS started cleanly on first boot (issue #3)
+        run: |
+          restarts=$(docker inspect -f '{{.RestartCount}}' irisops)
+          echo "irisops restarts: $restarts"
+          [ "$restarts" = 0 ]
+          ! docker compose logs iris | grep -E 'FATAL|iris-after-start'
       - name: Portal, SysAdmin API and MCP respond
         run: |
           curl -fsS http://localhost:52773/irisops/ | grep -q '<div id="root">'

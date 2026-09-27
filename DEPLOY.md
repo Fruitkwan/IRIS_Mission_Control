@@ -47,8 +47,7 @@ set -a; . ./.env.demo; set +a
 docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
 ```
 
-The first build takes 5–10 minutes. Wait until IRIS reports healthy (it may restart
-once on first boot; that's expected):
+The first build takes 5–10 minutes. Wait until IRIS reports healthy:
 
 ```bash
 docker inspect -f '{{.State.Health.Status}}' irisops
