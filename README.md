@@ -269,9 +269,10 @@ docker compose up -d --build
 - MCP endpoint: **http://localhost:3333/mcp**. Status, tool list and audit
   are at `http://localhost:3333/status`, `/tools` and `/audit`.
 
-> The `-zpm` base image's post-start hook can fail once on first boot (an
-> upstream `dbapi` regression). The compose file's `restart: unless-stopped`
-> recovers from it automatically.
+> The compose file starts IRIS with `/iris-main` directly. This skips the
+> `-zpm` base image's first-boot hook, which fails on an upstream `dbapi`
+> regression ([#3](https://github.com/Fruitkwan/IRIS_Mission_Control/issues/3)).
+> The image doesn't need it: everything is installed at build time.
 
 > **Upgrading an existing stack:** the `irisops-data` volume holds the IRIS
 > databases, so `--build` alone keeps the previously installed classes. Run
